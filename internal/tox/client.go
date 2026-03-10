@@ -183,6 +183,11 @@ func (c *Client) Bootstrap() {
 func (c *Client) Stop() {
 	c.stopOnce.Do(func() {
 		close(c.done)
+		defer func() {
+			// Recover from any panic in tox.Kill() to prevent
+			// crashes during shutdown.
+			_ = recover()
+		}()
 		c.tox.Kill()
 	})
 }
