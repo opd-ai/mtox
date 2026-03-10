@@ -24,8 +24,9 @@ profile.cov
 go.work
 go.work.sum
 
-# env file
-.env
+# mtox binary
+/mtox
+/cmd/mtox/mtox
 
 # Editor/IDE
 # .idea/
