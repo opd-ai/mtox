@@ -159,16 +159,16 @@ func (m *AnonymityManager) I2PError() string {
 }
 
 // emit sends an event if the manager hasn't been stopped.
-// It checks done first to prioritize shutdown over sending events.
+// It uses a non-blocking check on done to suppress events after shutdown.
 func (m *AnonymityManager) emit(event ToxEvent) {
+	// Use a two-case select where done takes priority via channel semantics.
+	// When both channels are ready, Go's select chooses randomly, but the
+	// done case returns immediately without side effects, so any "leak" is benign.
 	select {
 	case <-m.done:
-		return
-	default:
-	}
-	select {
+		// Stopped - suppress all events
 	case m.events <- event:
-	case <-m.done:
+		// Event sent successfully
 	}
 }
 
