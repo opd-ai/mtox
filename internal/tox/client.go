@@ -35,10 +35,11 @@ var bootstrapNodes = []struct {
 
 // Client wraps a toxcore.Tox instance and exposes events via a channel.
 type Client struct {
-	tox    *toxcore.Tox
-	events chan ToxEvent
-	once   sync.Once
-	done   chan struct{}
+	tox      *toxcore.Tox
+	events   chan ToxEvent
+	startOnce sync.Once
+	stopOnce  sync.Once
+	done     chan struct{}
 }
 
 // NewClient creates a new Client, loading a saved profile if one exists.
@@ -111,11 +112,12 @@ func (c *Client) registerCallbacks() {
 	})
 }
 
-// emit sends an event to the channel in a non-blocking way, dropping if full.
+// emit sends an event to the events channel.
+// For high-priority events it blocks until the event is sent or shutdown occurs.
 func (c *Client) emit(event ToxEvent) {
 	select {
 	case c.events <- event:
-	default:
+	case <-c.done:
 	}
 }
 
@@ -126,28 +128,45 @@ func (c *Client) Events() <-chan ToxEvent {
 
 // Start begins the tox iteration loop in the background.
 func (c *Client) Start() {
-	c.once.Do(func() {
+	c.startOnce.Do(func() {
 		go c.iterateLoop()
 	})
 }
 
 // iterateLoop runs tox.Iterate() on a schedule until Stop is called.
+// It uses time.NewTimer to avoid allocating a new timer on every iteration.
 func (c *Client) iterateLoop() {
+	const minInterval = 20 * time.Millisecond
+	interval := 50 * time.Millisecond
+	timer := time.NewTimer(interval)
+	defer timer.Stop()
+
 	for {
 		select {
 		case <-c.done:
 			return
 		default:
-			c.tox.Iterate()
-			interval := c.tox.IterationInterval()
-			if interval <= 0 {
-				interval = 50 * time.Millisecond
-			}
+		}
+
+		c.tox.Iterate()
+		interval = c.tox.IterationInterval()
+		if interval < minInterval {
+			interval = minInterval
+		}
+
+		// Drain and reset the timer safely.
+		if !timer.Stop() {
 			select {
-			case <-c.done:
-				return
-			case <-time.After(interval):
+			case <-timer.C:
+			default:
 			}
+		}
+		timer.Reset(interval)
+
+		select {
+		case <-c.done:
+			return
+		case <-timer.C:
 		}
 	}
 }
