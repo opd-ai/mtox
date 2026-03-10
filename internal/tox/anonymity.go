@@ -272,8 +272,8 @@ func (m *AnonymityManager) tryTorListenWithRetry(tor *transport.TorTransport) (n
 		case <-time.After(backoff):
 		}
 
-		// Exponential backoff with jitter, capped at maxBackoff
-		backoff = time.Duration(float64(backoff) * 1.5)
+		// Exponential backoff (1.5x) using integer arithmetic, capped at maxBackoff
+		backoff = backoff + (backoff / 2)
 		if backoff > maxBackoff {
 			backoff = maxBackoff
 		}
@@ -369,8 +369,8 @@ func (m *AnonymityManager) tryI2PListenWithRetry(i2p *transport.I2PTransport) (n
 		case <-time.After(backoff):
 		}
 
-		// Exponential backoff, capped at maxBackoff
-		backoff = time.Duration(float64(backoff) * 1.5)
+		// Exponential backoff (1.5x) using integer arithmetic, capped at maxBackoff
+		backoff = backoff + (backoff / 2)
 		if backoff > maxBackoff {
 			backoff = maxBackoff
 		}
