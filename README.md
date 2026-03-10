@@ -18,7 +18,7 @@ It uses [`github.com/opd-ai/toxcore`](https://github.com/opd-ai/toxcore) as the 
 │                  ├─────────────────────────────────│
 │                  │ > type a message...             │
 ├──────────────────┴─────────────────────────────────┤
-│ 🟢 Connected (UDP) 🧅Tor 🧄I2P │ My ID:... │ v0.1 │
+│ 🟢 Connected (UDP) 🧅Tor 🧄I2P │ My ID:... │ mtox v0.1 │
 └────────────────────────────────────────────────────┘
 ```
 
@@ -62,8 +62,6 @@ mtox automatically enables **Tor** and **I2P** support when the respective servi
 |----------|-------------|
 | `MTOX_DISABLE_TOR=1` | Disable Tor even if service is available |
 | `MTOX_DISABLE_I2P=1` | Disable I2P even if service is available |
-| `TOR_CONTROL_ADDR` | Custom Tor control address (default: `127.0.0.1:9051`) |
-| `I2P_SAM_ADDR` | Custom I2P SAM address (default: `127.0.0.1:7656`) |
 
 ## Build
 

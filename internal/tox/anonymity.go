@@ -159,7 +159,13 @@ func (m *AnonymityManager) I2PError() string {
 }
 
 // emit sends an event if the manager hasn't been stopped.
+// It checks done first to prioritize shutdown over sending events.
 func (m *AnonymityManager) emit(event ToxEvent) {
+	select {
+	case <-m.done:
+		return
+	default:
+	}
 	select {
 	case m.events <- event:
 	case <-m.done:
@@ -168,20 +174,27 @@ func (m *AnonymityManager) emit(event ToxEvent) {
 
 // initTor attempts to initialize the Tor transport.
 func (m *AnonymityManager) initTor() {
+	// Check if Tor is explicitly disabled via environment variable
+	if os.Getenv("MTOX_DISABLE_TOR") == "1" {
+		disableMsg := "disabled via MTOX_DISABLE_TOR"
+
+		m.mu.Lock()
+		m.torStatus = AnonymityUnavailable
+		m.torError = disableMsg
+		m.mu.Unlock()
+
+		m.emit(AnonymityStatusEvent{
+			Network: "tor",
+			Status:  AnonymityUnavailable,
+			Error:   disableMsg,
+		})
+		return
+	}
+
 	m.mu.Lock()
 	m.torStatus = AnonymityConnecting
 	m.mu.Unlock()
 	m.emit(AnonymityStatusEvent{Network: "tor", Status: AnonymityConnecting})
-
-	// Check if Tor is explicitly disabled via environment variable
-	if os.Getenv("MTOX_DISABLE_TOR") == "1" {
-		m.mu.Lock()
-		m.torStatus = AnonymityUnavailable
-		m.torError = "disabled via MTOX_DISABLE_TOR"
-		m.mu.Unlock()
-		m.emit(AnonymityStatusEvent{Network: "tor", Status: AnonymityUnavailable})
-		return
-	}
 
 	// Create the Tor transport
 	tor := transport.NewTorTransport()
@@ -197,6 +210,15 @@ func (m *AnonymityManager) initTor() {
 		m.emit(AnonymityStatusEvent{Network: "tor", Status: AnonymityUnavailable, Error: err.Error()})
 		tor.Close()
 		return
+	}
+
+	// Check if we were stopped while connecting - if so, clean up and return
+	select {
+	case <-m.done:
+		listener.Close()
+		tor.Close()
+		return
+	default:
 	}
 
 	// Success - store the listener and address
@@ -243,20 +265,27 @@ func (m *AnonymityManager) tryTorListen(tor *transport.TorTransport) (net.Listen
 
 // initI2P attempts to initialize the I2P transport.
 func (m *AnonymityManager) initI2P() {
+	// Check if I2P is explicitly disabled via environment variable
+	if os.Getenv("MTOX_DISABLE_I2P") == "1" {
+		disableMsg := "disabled via MTOX_DISABLE_I2P"
+
+		m.mu.Lock()
+		m.i2pStatus = AnonymityUnavailable
+		m.i2pError = disableMsg
+		m.mu.Unlock()
+
+		m.emit(AnonymityStatusEvent{
+			Network: "i2p",
+			Status:  AnonymityUnavailable,
+			Error:   disableMsg,
+		})
+		return
+	}
+
 	m.mu.Lock()
 	m.i2pStatus = AnonymityConnecting
 	m.mu.Unlock()
 	m.emit(AnonymityStatusEvent{Network: "i2p", Status: AnonymityConnecting})
-
-	// Check if I2P is explicitly disabled via environment variable
-	if os.Getenv("MTOX_DISABLE_I2P") == "1" {
-		m.mu.Lock()
-		m.i2pStatus = AnonymityUnavailable
-		m.i2pError = "disabled via MTOX_DISABLE_I2P"
-		m.mu.Unlock()
-		m.emit(AnonymityStatusEvent{Network: "i2p", Status: AnonymityUnavailable})
-		return
-	}
 
 	// Create the I2P transport
 	i2p := transport.NewI2PTransport()
@@ -271,6 +300,15 @@ func (m *AnonymityManager) initI2P() {
 		m.emit(AnonymityStatusEvent{Network: "i2p", Status: AnonymityUnavailable, Error: err.Error()})
 		i2p.Close()
 		return
+	}
+
+	// Check if we were stopped while connecting - if so, clean up and return
+	select {
+	case <-m.done:
+		listener.Close()
+		i2p.Close()
+		return
+	default:
 	}
 
 	// Success - store the listener and address
