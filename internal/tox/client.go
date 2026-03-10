@@ -183,14 +183,14 @@ func (c *Client) Bootstrap() {
 // It is safe to call Stop multiple times.
 func (c *Client) Stop() {
 	c.stopOnce.Do(func() {
-		close(c.done)
 		defer func() {
-			// Recover from any panic in tox.Kill() to prevent
+			// Recover from any panic during cleanup to prevent
 			// crashes during shutdown, but log it for debugging.
 			if r := recover(); r != nil {
-				log.Printf("mtox: panic during tox.Kill(): %v", r)
+				log.Printf("mtox: panic during tox cleanup: %v", r)
 			}
 		}()
+		close(c.done)
 		c.tox.Kill()
 	})
 }
