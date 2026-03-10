@@ -149,6 +149,21 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.statusBar.connectionStatus = m.Status
 		return a, waitForToxEvent(a.client.Events())
 
+	case toxclient.AnonymityStatusEvent:
+		switch m.Network {
+		case "tor":
+			a.statusBar.torStatus = m.Status
+			if m.Status == toxclient.AnonymityAvailable && m.Address != "" {
+				a.setNotification("Tor hidden service ready")
+			}
+		case "i2p":
+			a.statusBar.i2pStatus = m.Status
+			if m.Status == toxclient.AnonymityAvailable && m.Address != "" {
+				a.setNotification("I2P destination ready")
+			}
+		}
+		return a, waitForToxEvent(a.client.Events())
+
 	case toxclient.TickEvent:
 		a.refreshContacts()
 		// Clear expired notifications.

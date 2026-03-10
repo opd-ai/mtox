@@ -36,11 +36,12 @@ var bootstrapNodes = []struct {
 
 // Client wraps a toxcore.Tox instance and exposes events via a channel.
 type Client struct {
-	tox      *toxcore.Tox
-	events   chan ToxEvent
-	startOnce sync.Once
-	stopOnce  sync.Once
-	done     chan struct{}
+	tox             *toxcore.Tox
+	events          chan ToxEvent
+	startOnce       sync.Once
+	stopOnce        sync.Once
+	done            chan struct{}
+	anonymityMgr    *AnonymityManager
 }
 
 // NewClient creates a new Client, loading a saved profile if one exists.
@@ -67,6 +68,9 @@ func NewClient() (*Client, error) {
 		events: make(chan ToxEvent, eventBufSize),
 		done:   make(chan struct{}),
 	}
+
+	// Initialize the anonymity network manager with the events channel
+	c.anonymityMgr = NewAnonymityManager(c.events)
 
 	c.registerCallbacks()
 
@@ -128,9 +132,13 @@ func (c *Client) Events() <-chan ToxEvent {
 }
 
 // Start begins the tox iteration loop in the background.
+// It also starts the anonymity network manager which will attempt to
+// connect to Tor and I2P if they are available.
 func (c *Client) Start() {
 	c.startOnce.Do(func() {
 		go c.iterateLoop()
+		// Start anonymity network initialization in background
+		c.anonymityMgr.Start()
 	})
 }
 
@@ -190,6 +198,10 @@ func (c *Client) Stop() {
 				log.Printf("mtox: panic during tox cleanup: %v", r)
 			}
 		}()
+		// Stop anonymity networks first
+		if c.anonymityMgr != nil {
+			c.anonymityMgr.Stop()
+		}
 		close(c.done)
 		c.tox.Kill()
 	})
@@ -274,4 +286,24 @@ func (c *Client) SendMessage(friendID uint32, message string) error {
 // SetTyping notifies a friend of typing status.
 func (c *Client) SetTyping(friendID uint32, isTyping bool) error {
 	return c.tox.SetTyping(friendID, isTyping)
+}
+
+// TorStatus returns the current Tor connection status.
+func (c *Client) TorStatus() AnonymityStatus {
+	return c.anonymityMgr.TorStatus()
+}
+
+// I2PStatus returns the current I2P connection status.
+func (c *Client) I2PStatus() AnonymityStatus {
+	return c.anonymityMgr.I2PStatus()
+}
+
+// TorAddress returns the .onion address if available.
+func (c *Client) TorAddress() string {
+	return c.anonymityMgr.TorAddress()
+}
+
+// I2PAddress returns the .b32.i2p address if available.
+func (c *Client) I2PAddress() string {
+	return c.anonymityMgr.I2PAddress()
 }

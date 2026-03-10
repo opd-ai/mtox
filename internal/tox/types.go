@@ -67,3 +67,13 @@ func (SelfConnectionStatusEvent) toxEvent() {}
 type TickEvent struct{}
 
 func (TickEvent) toxEvent() {}
+
+// AnonymityStatusEvent is fired when the status of an anonymity network changes.
+type AnonymityStatusEvent struct {
+	Network string          // "tor" or "i2p"
+	Status  AnonymityStatus // Current status
+	Address string          // Network-specific address (e.g., .onion or .b32.i2p) if available
+	Error   string          // Error message if status is unavailable or error
+}
+
+func (AnonymityStatusEvent) toxEvent() {}
