@@ -74,20 +74,22 @@ This allows you to communicate with contacts on either network while maintaining
 
 ### Anon-Only Mode
 
-When `MTOX_ANON_ONLY=1` is set, mtox enables both Tor and I2P with I2P datagrams for UDP-like communication, while disabling all clearnet traffic. This is the recommended mode for maximum anonymity.
+When `MTOX_ANON_ONLY=1` is set, mtox disables clearnet UDP/IPv6/local discovery and enables both Tor and I2P transports. This reduces clearnet exposure but **does not guarantee all traffic goes through anonymity networks** - toxcore may still make some clearnet TCP connections for DHT bootstrapping.
 
 ```bash
 # Run mtox in anon-only mode
 MTOX_ANON_ONLY=1 ./mtox
 ```
 
-**What anon-only mode enables:**
-- ✅ Tor hidden services (TCP)
-- ✅ I2P destinations (TCP)  
-- ✅ I2P datagrams (UDP-like)
-- ❌ Clearnet UDP disabled
-- ❌ IPv6 disabled
-- ❌ Local discovery disabled
+**What anon-only mode does:**
+- ✅ Enables Tor hidden services (TCP)
+- ✅ Enables I2P destinations (TCP)  
+- ✅ Enables I2P datagrams (UDP-like)
+- ❌ Disables clearnet UDP
+- ❌ Disables IPv6
+- ❌ Disables local discovery
+
+**Note:** For complete anonymity guarantees, consider running mtox inside a network namespace or VM that blocks all non-Tor/I2P traffic.
 
 ## Build
 

@@ -29,21 +29,32 @@ func (s statusBar) view() string {
 	versionStr := "mtox v0.1"
 
 	left := statusBarStyle.Render(connStr)
-	anon := statusBarStyle.Render(anonStr)
-	mid := statusBarStyle.Render(addrStr)
 	right := statusBarStyle.Render(versionStr)
 
 	leftWidth := lipgloss.Width(left)
-	anonWidth := lipgloss.Width(anon)
 	rightWidth := lipgloss.Width(right)
+
+	// Only include anon segment if there's content to show
+	var anon string
+	var anonWidth int
+	if anonStr != "" {
+		anon = statusBarStyle.Render(anonStr)
+		anonWidth = lipgloss.Width(anon)
+	}
+
 	midWidth := s.width - leftWidth - anonWidth - rightWidth
 	if midWidth < 0 {
 		midWidth = 0
 	}
 
-	mid = statusBarStyle.Width(midWidth).Render(addrStr)
+	mid := statusBarStyle.Width(midWidth).Render(addrStr)
 
-	bar := lipgloss.JoinHorizontal(lipgloss.Top, left, anon, mid, right)
+	var bar string
+	if anonStr != "" {
+		bar = lipgloss.JoinHorizontal(lipgloss.Top, left, anon, mid, right)
+	} else {
+		bar = lipgloss.JoinHorizontal(lipgloss.Top, left, mid, right)
+	}
 
 	// Pad to full width.
 	if lipgloss.Width(bar) < s.width {

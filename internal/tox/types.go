@@ -68,9 +68,15 @@ type TickEvent struct{}
 
 func (TickEvent) toxEvent() {}
 
+// Network type constants for AnonymityStatusEvent.
+const (
+	NetworkTor = "tor"
+	NetworkI2P = "i2p"
+)
+
 // AnonymityStatusEvent is fired when the status of an anonymity network changes.
 type AnonymityStatusEvent struct {
-	Network string          // "tor" or "i2p"
+	Network string          // NetworkTor or NetworkI2P
 	Status  AnonymityStatus // Current status
 	Address string          // Network-specific address (e.g., .onion or .b32.i2p) if available
 	Error   string          // Error message if status is unavailable or error

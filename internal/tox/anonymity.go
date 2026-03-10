@@ -159,16 +159,28 @@ func (m *AnonymityManager) I2PError() string {
 }
 
 // emit sends an event if the manager hasn't been stopped.
-// It uses a non-blocking check on done to suppress events after shutdown.
+// It first does a non-blocking check on done to suppress events after shutdown,
+// then attempts a non-blocking send on m.events to avoid blocking when the
+// channel is full.
 func (m *AnonymityManager) emit(event ToxEvent) {
-	// Use a two-case select where done takes priority via channel semantics.
-	// When both channels are ready, Go's select chooses randomly, but the
-	// done case returns immediately without side effects, so any "leak" is benign.
+	// Fast path: if we've been stopped, suppress the event immediately.
 	select {
 	case <-m.done:
 		// Stopped - suppress all events
+		return
+	default:
+	}
+
+	// Attempt to deliver the event without blocking. If done is closed between
+	// the first check and this point, prefer shutdown over sending.
+	select {
+	case <-m.done:
+		// Stopped during emit - suppress the event
+		return
 	case m.events <- event:
 		// Event sent successfully
+	default:
+		// Channel full - drop the event to avoid blocking
 	}
 }
 
@@ -184,7 +196,7 @@ func (m *AnonymityManager) initTor() {
 		m.mu.Unlock()
 
 		m.emit(AnonymityStatusEvent{
-			Network: "tor",
+			Network: NetworkTor,
 			Status:  AnonymityUnavailable,
 			Error:   disableMsg,
 		})
@@ -194,20 +206,19 @@ func (m *AnonymityManager) initTor() {
 	m.mu.Lock()
 	m.torStatus = AnonymityConnecting
 	m.mu.Unlock()
-	m.emit(AnonymityStatusEvent{Network: "tor", Status: AnonymityConnecting})
+	m.emit(AnonymityStatusEvent{Network: NetworkTor, Status: AnonymityConnecting})
 
 	// Create the Tor transport
 	tor := transport.NewTorTransport()
 
-	// Try to establish a listener (this will verify Tor is running)
-	// Use a temporary address - onramp will generate the real .onion address
-	listener, err := m.tryTorListen(tor)
+	// Try to establish a listener with continuous retry until success or shutdown
+	listener, err := m.tryTorListenWithRetry(tor)
 	if err != nil {
 		m.mu.Lock()
 		m.torStatus = AnonymityUnavailable
 		m.torError = err.Error()
 		m.mu.Unlock()
-		m.emit(AnonymityStatusEvent{Network: "tor", Status: AnonymityUnavailable, Error: err.Error()})
+		m.emit(AnonymityStatusEvent{Network: NetworkTor, Status: AnonymityUnavailable, Error: err.Error()})
 		tor.Close()
 		return
 	}
@@ -222,24 +233,27 @@ func (m *AnonymityManager) initTor() {
 	}
 
 	// Success - store the listener and address
+	// Extract host-only from listener address (remove port if present)
+	addr := extractHost(listener.Addr().String())
+
 	m.mu.Lock()
 	m.torTransport = tor
 	m.torListener = listener
-	m.torAddress = listener.Addr().String()
+	m.torAddress = addr
 	m.torStatus = AnonymityAvailable
 	m.mu.Unlock()
 
-	log.Printf("mtox: Tor hidden service available at %s", m.torAddress)
-	m.emit(AnonymityStatusEvent{Network: "tor", Status: AnonymityAvailable, Address: m.torAddress})
+	log.Printf("mtox: Tor hidden service available at %s", addr)
+	m.emit(AnonymityStatusEvent{Network: NetworkTor, Status: AnonymityAvailable, Address: addr})
 }
 
-// tryTorListen attempts to create a Tor listener with retry logic.
-func (m *AnonymityManager) tryTorListen(tor *transport.TorTransport) (net.Listener, error) {
-	// Initial retry with backoff
-	maxRetries := 3
-	var lastErr error
+// tryTorListenWithRetry attempts to create a Tor listener with continuous retry and exponential backoff.
+// It retries indefinitely until success or shutdown.
+func (m *AnonymityManager) tryTorListenWithRetry(tor *transport.TorTransport) (net.Listener, error) {
+	backoff := time.Second
+	maxBackoff := 5 * time.Minute
 
-	for i := 0; i < maxRetries; i++ {
+	for {
 		select {
 		case <-m.done:
 			return nil, fmt.Errorf("cancelled")
@@ -250,17 +264,20 @@ func (m *AnonymityManager) tryTorListen(tor *transport.TorTransport) (net.Listen
 		if err == nil {
 			return listener, nil
 		}
-		lastErr = err
 
-		// Wait before retrying
+		// Wait before retrying with exponential backoff
 		select {
 		case <-m.done:
 			return nil, fmt.Errorf("cancelled")
-		case <-time.After(time.Duration(i+1) * 2 * time.Second):
+		case <-time.After(backoff):
+		}
+
+		// Exponential backoff with jitter, capped at maxBackoff
+		backoff = time.Duration(float64(backoff) * 1.5)
+		if backoff > maxBackoff {
+			backoff = maxBackoff
 		}
 	}
-
-	return nil, fmt.Errorf("tor unavailable: %w", lastErr)
 }
 
 // initI2P attempts to initialize the I2P transport.
@@ -275,7 +292,7 @@ func (m *AnonymityManager) initI2P() {
 		m.mu.Unlock()
 
 		m.emit(AnonymityStatusEvent{
-			Network: "i2p",
+			Network: NetworkI2P,
 			Status:  AnonymityUnavailable,
 			Error:   disableMsg,
 		})
@@ -285,19 +302,19 @@ func (m *AnonymityManager) initI2P() {
 	m.mu.Lock()
 	m.i2pStatus = AnonymityConnecting
 	m.mu.Unlock()
-	m.emit(AnonymityStatusEvent{Network: "i2p", Status: AnonymityConnecting})
+	m.emit(AnonymityStatusEvent{Network: NetworkI2P, Status: AnonymityConnecting})
 
 	// Create the I2P transport
 	i2p := transport.NewI2PTransport()
 
-	// Try to establish a listener (this will verify I2P SAM bridge is available)
-	listener, err := m.tryI2PListen(i2p)
+	// Try to establish a listener with continuous retry until success or shutdown
+	listener, err := m.tryI2PListenWithRetry(i2p)
 	if err != nil {
 		m.mu.Lock()
 		m.i2pStatus = AnonymityUnavailable
 		m.i2pError = err.Error()
 		m.mu.Unlock()
-		m.emit(AnonymityStatusEvent{Network: "i2p", Status: AnonymityUnavailable, Error: err.Error()})
+		m.emit(AnonymityStatusEvent{Network: NetworkI2P, Status: AnonymityUnavailable, Error: err.Error()})
 		i2p.Close()
 		return
 	}
@@ -312,24 +329,28 @@ func (m *AnonymityManager) initI2P() {
 	}
 
 	// Success - store the listener and address
+	// Extract host-only from listener address (remove port if present)
+	addr := extractHost(listener.Addr().String())
+
 	m.mu.Lock()
 	m.i2pTransport = i2p
 	m.i2pListener = listener
-	m.i2pAddress = listener.Addr().String()
+	m.i2pAddress = addr
 	m.i2pStatus = AnonymityAvailable
 	m.mu.Unlock()
 
-	log.Printf("mtox: I2P destination available at %s", m.i2pAddress)
-	m.emit(AnonymityStatusEvent{Network: "i2p", Status: AnonymityAvailable, Address: m.i2pAddress})
+	log.Printf("mtox: I2P destination available at %s", addr)
+	m.emit(AnonymityStatusEvent{Network: NetworkI2P, Status: AnonymityAvailable, Address: addr})
 }
 
-// tryI2PListen attempts to create an I2P listener with retry logic.
-func (m *AnonymityManager) tryI2PListen(i2p *transport.I2PTransport) (net.Listener, error) {
+// tryI2PListenWithRetry attempts to create an I2P listener with continuous retry and exponential backoff.
+// It retries indefinitely until success or shutdown.
+func (m *AnonymityManager) tryI2PListenWithRetry(i2p *transport.I2PTransport) (net.Listener, error) {
 	// I2P tunnel establishment can take longer than Tor
-	maxRetries := 3
-	var lastErr error
+	backoff := 2 * time.Second
+	maxBackoff := 5 * time.Minute
 
-	for i := 0; i < maxRetries; i++ {
+	for {
 		select {
 		case <-m.done:
 			return nil, fmt.Errorf("cancelled")
@@ -340,15 +361,29 @@ func (m *AnonymityManager) tryI2PListen(i2p *transport.I2PTransport) (net.Listen
 		if err == nil {
 			return listener, nil
 		}
-		lastErr = err
 
-		// Wait before retrying (I2P tunnels take time)
+		// Wait before retrying with exponential backoff
 		select {
 		case <-m.done:
 			return nil, fmt.Errorf("cancelled")
-		case <-time.After(time.Duration(i+1) * 3 * time.Second):
+		case <-time.After(backoff):
+		}
+
+		// Exponential backoff, capped at maxBackoff
+		backoff = time.Duration(float64(backoff) * 1.5)
+		if backoff > maxBackoff {
+			backoff = maxBackoff
 		}
 	}
+}
 
-	return nil, fmt.Errorf("i2p unavailable: %w", lastErr)
+// extractHost extracts just the host portion from an address, removing any port.
+// For .onion and .b32.i2p addresses, we want just the hostname.
+func extractHost(addr string) string {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		// No port in address, return as-is
+		return addr
+	}
+	return host
 }
