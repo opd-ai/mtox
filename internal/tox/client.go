@@ -44,12 +44,28 @@ type Client struct {
 	anonymityMgr    *AnonymityManager
 }
 
+// IsI2POnlyMode returns true if MTOX_I2P_ONLY=1 is set.
+// When enabled, clearnet UDP is disabled to ensure all traffic goes through I2P.
+func IsI2POnlyMode() bool {
+	return os.Getenv("MTOX_I2P_ONLY") == "1"
+}
+
 // NewClient creates a new Client, loading a saved profile if one exists.
 func NewClient() (*Client, error) {
 	options := toxcore.NewOptions()
-	options.UDPEnabled = true
-	options.IPv6Enabled = true
-	options.LocalDiscovery = true
+
+	// In I2P-only mode, disable clearnet UDP to prevent traffic leaks.
+	// I2P provides UDP-like datagram support via its SAM bridge.
+	if IsI2POnlyMode() {
+		options.UDPEnabled = false
+		options.IPv6Enabled = false
+		options.LocalDiscovery = false
+		log.Println("mtox: I2P-only mode enabled, clearnet UDP disabled")
+	} else {
+		options.UDPEnabled = true
+		options.IPv6Enabled = true
+		options.LocalDiscovery = true
+	}
 
 	profilePath := ProfilePath()
 	if data, err := os.ReadFile(profilePath); err == nil {

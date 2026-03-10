@@ -37,12 +37,20 @@ It uses [`github.com/opd-ai/toxcore`](https://github.com/opd-ai/toxcore) as the 
 
 ## Anonymity Network Support
 
-mtox automatically enables **Tor** and **I2P** support when the respective services are detected:
+mtox automatically enables **Tor** and **I2P** support when the respective services are detected. **Both networks can be used simultaneously**, providing maximum connectivity options for privacy-conscious users.
 
-| Network | Detection | Status Indicator | Address Format |
-|---------|-----------|------------------|----------------|
-| **Tor** | Tor daemon on port 9051 | 🧅Tor | `*.onion` |
-| **I2P** | SAM bridge on port 7656 | 🧄I2P | `*.b32.i2p` |
+| Network | Detection | Status Indicator | Address Format | Transport |
+|---------|-----------|------------------|----------------|-----------|
+| **Tor** | Tor daemon on port 9051 | 🧅Tor | `*.onion` | TCP (stream) |
+| **I2P** | SAM bridge on port 7656 | 🧄I2P | `*.b32.i2p` | TCP + UDP (datagrams) |
+
+### Simultaneous Network Support
+
+When both Tor and I2P services are available, mtox initializes both transports in parallel:
+- **Tor** provides TCP-based hidden service connectivity
+- **I2P** provides both stream (TCP-like) and datagram (UDP-like) connectivity via SAM
+
+This allows you to communicate with contacts on either network while maintaining anonymity.
 
 ### Enabling Tor Support
 
@@ -62,6 +70,18 @@ mtox automatically enables **Tor** and **I2P** support when the respective servi
 |----------|-------------|
 | `MTOX_DISABLE_TOR=1` | Disable Tor even if service is available |
 | `MTOX_DISABLE_I2P=1` | Disable I2P even if service is available |
+| `MTOX_I2P_ONLY=1` | I2P-only mode: disable clearnet UDP, route all traffic through I2P |
+
+### I2P-Only Mode
+
+When `MTOX_I2P_ONLY=1` is set, mtox disables clearnet UDP connections and IPv6 to prevent traffic leaks outside of I2P. This mode is useful for users who want to ensure all Tox traffic is routed exclusively through the I2P network.
+
+```bash
+# Run mtox in I2P-only mode
+MTOX_I2P_ONLY=1 ./mtox
+```
+
+**Note:** I2P provides UDP-like datagram support via its SAM bridge, so real-time Tox communication remains functional. The I2P daemon must be running with SAM enabled (port 7656).
 
 ## Build
 
