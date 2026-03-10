@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	toxclient "github.com/opd-ai/mtox/internal/tox"
 	"github.com/opd-ai/toxcore"
 )
 
@@ -13,6 +14,8 @@ type statusBar struct {
 	connectionStatus toxcore.ConnectionStatus
 	selfAddress      string
 	width            int
+	torStatus        toxclient.AnonymityStatus
+	i2pStatus        toxclient.AnonymityStatus
 }
 
 func newStatusBar(width int) statusBar {
@@ -21,23 +24,37 @@ func newStatusBar(width int) statusBar {
 
 func (s statusBar) view() string {
 	connStr := s.connectionString()
+	anonStr := s.anonymityString()
 	addrStr := s.addressString()
 	versionStr := "mtox v0.1"
 
 	left := statusBarStyle.Render(connStr)
-	mid := statusBarStyle.Render(addrStr)
 	right := statusBarStyle.Render(versionStr)
 
 	leftWidth := lipgloss.Width(left)
 	rightWidth := lipgloss.Width(right)
-	midWidth := s.width - leftWidth - rightWidth
+
+	// Only include anon segment if there's content to show
+	var anon string
+	var anonWidth int
+	if anonStr != "" {
+		anon = statusBarStyle.Render(anonStr)
+		anonWidth = lipgloss.Width(anon)
+	}
+
+	midWidth := s.width - leftWidth - anonWidth - rightWidth
 	if midWidth < 0 {
 		midWidth = 0
 	}
 
-	mid = statusBarStyle.Width(midWidth).Render(addrStr)
+	mid := statusBarStyle.Width(midWidth).Render(addrStr)
 
-	bar := lipgloss.JoinHorizontal(lipgloss.Top, left, mid, right)
+	var bar string
+	if anonStr != "" {
+		bar = lipgloss.JoinHorizontal(lipgloss.Top, left, anon, mid, right)
+	} else {
+		bar = lipgloss.JoinHorizontal(lipgloss.Top, left, mid, right)
+	}
 
 	// Pad to full width.
 	if lipgloss.Width(bar) < s.width {
@@ -56,6 +73,31 @@ func (s statusBar) connectionString() string {
 	default:
 		return statusDisconnected.Render("🔴 Disconnected")
 	}
+}
+
+func (s statusBar) anonymityString() string {
+	var parts []string
+
+	// Tor status indicator
+	switch s.torStatus {
+	case toxclient.AnonymityAvailable:
+		parts = append(parts, "🧅Tor")
+	case toxclient.AnonymityConnecting:
+		parts = append(parts, "🧅…")
+	}
+
+	// I2P status indicator
+	switch s.i2pStatus {
+	case toxclient.AnonymityAvailable:
+		parts = append(parts, "🧄I2P")
+	case toxclient.AnonymityConnecting:
+		parts = append(parts, "🧄…")
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+	return " " + strings.Join(parts, " ") + " "
 }
 
 func (s statusBar) addressString() string {
