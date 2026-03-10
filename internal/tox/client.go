@@ -4,6 +4,7 @@ package tox
 import (
 	"encoding/hex"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -185,8 +186,10 @@ func (c *Client) Stop() {
 		close(c.done)
 		defer func() {
 			// Recover from any panic in tox.Kill() to prevent
-			// crashes during shutdown.
-			_ = recover()
+			// crashes during shutdown, but log it for debugging.
+			if r := recover(); r != nil {
+				log.Printf("mtox: panic during tox.Kill(): %v", r)
+			}
 		}()
 		c.tox.Kill()
 	})
