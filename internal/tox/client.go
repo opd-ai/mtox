@@ -179,9 +179,12 @@ func (c *Client) Bootstrap() {
 }
 
 // Stop halts the iteration loop and kills the tox instance.
+// It is safe to call Stop multiple times.
 func (c *Client) Stop() {
-	close(c.done)
-	c.tox.Kill()
+	c.stopOnce.Do(func() {
+		close(c.done)
+		c.tox.Kill()
+	})
 }
 
 // Save persists the profile to disk.
