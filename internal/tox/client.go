@@ -4,6 +4,7 @@ package tox
 import (
 	"encoding/hex"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -179,9 +180,19 @@ func (c *Client) Bootstrap() {
 }
 
 // Stop halts the iteration loop and kills the tox instance.
+// It is safe to call Stop multiple times.
 func (c *Client) Stop() {
-	close(c.done)
-	c.tox.Kill()
+	c.stopOnce.Do(func() {
+		defer func() {
+			// Recover from any panic during cleanup to prevent
+			// crashes during shutdown, but log it for debugging.
+			if r := recover(); r != nil {
+				log.Printf("mtox: panic during tox cleanup: %v", r)
+			}
+		}()
+		close(c.done)
+		c.tox.Kill()
+	})
 }
 
 // Save persists the profile to disk.
