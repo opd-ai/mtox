@@ -193,7 +193,7 @@ func (p contactsPanel) view() string {
 }
 
 func (p contactsPanel) renderContact(c contactEntry, selected bool) string {
-	indicator := statusIndicator(c.ConnectionStatus)
+	indicator := statusIndicator(c.ConnectionStatus, c.FriendStatus)
 	name := c.Name
 	if len(name) > p.width-8 {
 		name = name[:p.width-11] + "..."
@@ -218,12 +218,19 @@ func (p contactsPanel) renderContact(c contactEntry, selected bool) string {
 }
 
 // statusIndicator returns a coloured status indicator character.
-func statusIndicator(status toxcore.ConnectionStatus) string {
-	switch status {
-	case toxcore.ConnectionUDP, toxcore.ConnectionTCP:
-		return lipgloss.NewStyle().Foreground(colorOnline).Render("●")
-	default:
+// It considers both connection status (online/offline) and friend status (away/busy).
+func statusIndicator(connStatus toxcore.ConnectionStatus, friendStatus toxcore.FriendStatus) string {
+	if connStatus == toxcore.ConnectionNone {
 		return lipgloss.NewStyle().Foreground(colorOffline).Render("○")
+	}
+	// Online - check friend status for away/busy
+	switch friendStatus {
+	case toxcore.FriendStatusAway:
+		return lipgloss.NewStyle().Foreground(colorAway).Render("◌")
+	case toxcore.FriendStatusBusy:
+		return lipgloss.NewStyle().Foreground(colorBusy).Render("◉")
+	default:
+		return lipgloss.NewStyle().Foreground(colorOnline).Render("●")
 	}
 }
 

@@ -17,6 +17,9 @@ const (
 	focusChat
 )
 
+// contactsPanelWidth is the fixed width of the contacts panel.
+const contactsPanelWidth = 22
+
 // modalKind identifies which modal dialog is open.
 type modalKind int
 
@@ -50,8 +53,10 @@ type App struct {
 	activeReqIdx int
 
 	// current conversation
-	activeFriendID uint32
-	activeFriend   string
+	activeFriendID  uint32
+	activeFriend    string
+	historyByFriend map[uint32][]chatMessage
+	lastTypingState bool
 
 	// error/info message
 	notification string
@@ -66,8 +71,9 @@ func New(client *toxclient.Client) App {
 	mi.CharLimit = 512
 
 	a := App{
-		client:     client,
-		modalInput: mi,
+		client:          client,
+		modalInput:      mi,
+		historyByFriend: make(map[uint32][]chatMessage),
 	}
 	return a
 }
@@ -184,11 +190,10 @@ func (a App) handleResize(m tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 	statusH := 1
 	mainH := a.height - statusH
 
-	contactsW := 22
-	chatW := a.width - contactsW
+	chatW := a.width - contactsPanelWidth
 
 	if !a.ready {
-		a.contacts = newContactsPanel(contactsW, mainH)
+		a.contacts = newContactsPanel(contactsPanelWidth, mainH)
 		a.chat = newChatPanel(chatW, mainH)
 		a.statusBar = newStatusBar(a.width)
 		a.statusBar.selfAddress = a.client.SelfAddress()
@@ -199,7 +204,7 @@ func (a App) handleResize(m tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 		a.refreshContacts()
 		a.client.Bootstrap()
 	} else {
-		a.contacts.width = contactsW
+		a.contacts.width = contactsPanelWidth
 		a.contacts.height = mainH
 		a.chat.resize(chatW, mainH)
 		a.statusBar.width = a.width
@@ -268,10 +273,13 @@ func (a App) handleKey(m tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if submitted {
 			return a.sendMessage(text)
 		}
-		// Notify typing status.
+		// Notify typing status only on state transitions.
 		if a.activeFriendID != 0 {
 			isTyping := len(a.chat.input.Value()) > 0
-			_ = a.client.SetTyping(a.activeFriendID, isTyping)
+			if isTyping != a.lastTypingState {
+				_ = a.client.SetTyping(a.activeFriendID, isTyping)
+				a.lastTypingState = isTyping
+			}
 		}
 	}
 
@@ -281,8 +289,7 @@ func (a App) handleKey(m tea.KeyMsg) (tea.Model, tea.Cmd) {
 // handleMouse processes mouse events.
 func (a App) handleMouse(m tea.MouseMsg) (tea.Model, tea.Cmd) {
 	// Determine if click is in contacts or chat area.
-	contactsW := 22
-	if m.X < contactsW {
+	if m.X < contactsPanelWidth {
 		selected, friendID := a.contacts.update(m)
 		if selected {
 			a.focus = focusContacts
@@ -319,9 +326,16 @@ func (a *App) selectFriend(friendID uint32) {
 	if a.activeFriendID == friendID {
 		return
 	}
+	// Save current friend's history before switching.
+	if a.activeFriendID != 0 {
+		a.historyByFriend[a.activeFriendID] = a.chat.history
+	}
 	a.activeFriendID = friendID
 	a.activeFriend = a.friendName(friendID)
-	a.chat.setFriend(friendID, a.activeFriend)
+	a.lastTypingState = false
+	// Restore target friend's history (may be nil if first time).
+	savedHistory := a.historyByFriend[friendID]
+	a.chat.setFriendWithHistory(friendID, a.activeFriend, savedHistory)
 	a.contacts.clearUnread(friendID)
 }
 
@@ -354,6 +368,8 @@ func (a *App) handleIncomingMessage(friendID uint32, text string, isAction bool)
 	if friendID == a.activeFriendID {
 		a.chat.addMessage(msg)
 	} else {
+		// Store message in history map for non-active friend.
+		a.historyByFriend[friendID] = append(a.historyByFriend[friendID], msg)
 		a.contacts.incrementUnread(friendID)
 	}
 }

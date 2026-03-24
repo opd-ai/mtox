@@ -59,6 +59,15 @@ func (c *chatPanel) setFriend(friendID uint32, name string) {
 	c.refreshViewport()
 }
 
+// setFriendWithHistory sets the active friend and restores saved history.
+func (c *chatPanel) setFriendWithHistory(friendID uint32, name string, history []chatMessage) {
+	c.friendID = friendID
+	c.friendName = name
+	c.history = history
+	c.refreshViewport()
+	c.viewport.GotoBottom()
+}
+
 func (c *chatPanel) addMessage(msg chatMessage) {
 	c.history = append(c.history, msg)
 	c.refreshViewport()

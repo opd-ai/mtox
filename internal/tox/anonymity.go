@@ -250,34 +250,9 @@ func (m *AnonymityManager) initTor() {
 // tryTorListenWithRetry attempts to create a Tor listener with continuous retry and exponential backoff.
 // It retries indefinitely until success or shutdown.
 func (m *AnonymityManager) tryTorListenWithRetry(tor *transport.TorTransport) (net.Listener, error) {
-	backoff := time.Second
-	maxBackoff := 5 * time.Minute
-
-	for {
-		select {
-		case <-m.done:
-			return nil, fmt.Errorf("cancelled")
-		default:
-		}
-
-		listener, err := tor.Listen("mtox.onion:0")
-		if err == nil {
-			return listener, nil
-		}
-
-		// Wait before retrying with exponential backoff
-		select {
-		case <-m.done:
-			return nil, fmt.Errorf("cancelled")
-		case <-time.After(backoff):
-		}
-
-		// Exponential backoff (1.5x) using integer arithmetic, capped at maxBackoff
-		backoff = backoff + (backoff / 2)
-		if backoff > maxBackoff {
-			backoff = maxBackoff
-		}
-	}
+	return m.retryWithBackoff(time.Second, func() (net.Listener, error) {
+		return tor.Listen("mtox.onion:0")
+	})
 }
 
 // initI2P attempts to initialize the I2P transport.
@@ -347,7 +322,14 @@ func (m *AnonymityManager) initI2P() {
 // It retries indefinitely until success or shutdown.
 func (m *AnonymityManager) tryI2PListenWithRetry(i2p *transport.I2PTransport) (net.Listener, error) {
 	// I2P tunnel establishment can take longer than Tor
-	backoff := 2 * time.Second
+	return m.retryWithBackoff(2*time.Second, func() (net.Listener, error) {
+		return i2p.Listen("mtox.b32.i2p:0")
+	})
+}
+
+// retryWithBackoff retries the provided function with exponential backoff until success or shutdown.
+func (m *AnonymityManager) retryWithBackoff(initialBackoff time.Duration, attempt func() (net.Listener, error)) (net.Listener, error) {
+	backoff := initialBackoff
 	maxBackoff := 5 * time.Minute
 
 	for {
@@ -357,7 +339,7 @@ func (m *AnonymityManager) tryI2PListenWithRetry(i2p *transport.I2PTransport) (n
 		default:
 		}
 
-		listener, err := i2p.Listen("mtox.b32.i2p:0")
+		listener, err := attempt()
 		if err == nil {
 			return listener, nil
 		}

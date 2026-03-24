@@ -197,9 +197,16 @@ func (c *Client) iterateLoop() {
 }
 
 // Bootstrap connects to the configured bootstrap nodes.
+// If all bootstrap attempts fail, a warning is logged.
 func (c *Client) Bootstrap() {
+	var successCount int
 	for _, node := range bootstrapNodes {
-		_ = c.tox.Bootstrap(node.host, node.port, node.pubkey)
+		if err := c.tox.Bootstrap(node.host, node.port, node.pubkey); err == nil {
+			successCount++
+		}
+	}
+	if successCount == 0 {
+		log.Printf("mtox: warning: all bootstrap nodes failed to connect")
 	}
 }
 
