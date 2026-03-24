@@ -64,10 +64,10 @@ type AnonymityManager struct {
 	torListener  net.Listener
 	i2pListener  net.Listener
 
-	done       chan struct{}
-	events     chan<- ToxEvent
-	initOnce   sync.Once
-	closeOnce  sync.Once
+	done      chan struct{}
+	events    chan<- ToxEvent
+	initOnce  sync.Once
+	closeOnce sync.Once
 }
 
 // NewAnonymityManager creates a new manager for anonymity networks.

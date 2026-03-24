@@ -34,20 +34,20 @@ type pendingRequest struct {
 
 // App is the root bubbletea model.
 type App struct {
-	client   *toxclient.Client
-	contacts contactsPanel
-	chat     chatPanel
+	client    *toxclient.Client
+	contacts  contactsPanel
+	chat      chatPanel
 	statusBar statusBar
-	focus    int
-	width    int
-	height   int
+	focus     int
+	width     int
+	height    int
 
 	// modal state
-	modal         modalKind
-	modalInput    textinput.Model
-	modalPrompt   string
-	pendingReqs   []pendingRequest
-	activeReqIdx  int
+	modal        modalKind
+	modalInput   textinput.Model
+	modalPrompt  string
+	pendingReqs  []pendingRequest
+	activeReqIdx int
 
 	// current conversation
 	activeFriendID uint32
@@ -66,7 +66,7 @@ func New(client *toxclient.Client) App {
 	mi.CharLimit = 512
 
 	a := App{
-		client:    client,
+		client:     client,
 		modalInput: mi,
 	}
 	return a

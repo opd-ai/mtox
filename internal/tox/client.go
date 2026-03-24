@@ -36,12 +36,12 @@ var bootstrapNodes = []struct {
 
 // Client wraps a toxcore.Tox instance and exposes events via a channel.
 type Client struct {
-	tox             *toxcore.Tox
-	events          chan ToxEvent
-	startOnce       sync.Once
-	stopOnce        sync.Once
-	done            chan struct{}
-	anonymityMgr    *AnonymityManager
+	tox          *toxcore.Tox
+	events       chan ToxEvent
+	startOnce    sync.Once
+	stopOnce     sync.Once
+	done         chan struct{}
+	anonymityMgr *AnonymityManager
 }
 
 // IsAnonOnlyMode returns true if MTOX_ANON_ONLY=1 is set.
