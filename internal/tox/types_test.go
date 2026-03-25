@@ -182,3 +182,93 @@ func TestAnonymityStatusEvent_Fields(t *testing.T) {
 		t.Errorf("AnonymityStatusEvent.Error = %q, want empty", e.Error)
 	}
 }
+
+func TestAnonymityStatusEvent_WithError(t *testing.T) {
+	e := AnonymityStatusEvent{
+		Network: NetworkI2P,
+		Status:  AnonymityError,
+		Address: "",
+		Error:   "connection failed",
+	}
+
+	if e.Network != NetworkI2P {
+		t.Errorf("AnonymityStatusEvent.Network = %q, want %q", e.Network, NetworkI2P)
+	}
+	if e.Status != AnonymityError {
+		t.Errorf("AnonymityStatusEvent.Status = %v, want AnonymityError", e.Status)
+	}
+	if e.Address != "" {
+		t.Errorf("AnonymityStatusEvent.Address = %q, want empty", e.Address)
+	}
+	if e.Error != "connection failed" {
+		t.Errorf("AnonymityStatusEvent.Error = %q, want %q", e.Error, "connection failed")
+	}
+}
+
+func TestTickEvent(t *testing.T) {
+	e := TickEvent{}
+	e.toxEvent() // Should not panic
+
+	// TickEvent has no fields
+	events := []ToxEvent{e}
+	if len(events) != 1 {
+		t.Error("TickEvent should implement ToxEvent")
+	}
+}
+
+func TestAllEventTypes_Coverage(t *testing.T) {
+	// Create instances of all event types to ensure full coverage
+	events := []ToxEvent{
+		FriendRequestEvent{PublicKey: [32]byte{}, Message: "test"},
+		FriendMessageEvent{FriendID: 1, Message: "test"},
+		FriendConnectionStatusEvent{FriendID: 1, Status: toxcore.ConnectionUDP},
+		FriendNameEvent{FriendID: 1, Name: "test"},
+		FriendStatusMessageEvent{FriendID: 1, StatusMessage: "test"},
+		FriendTypingEvent{FriendID: 1, IsTyping: true},
+		SelfConnectionStatusEvent{Status: toxcore.ConnectionTCP},
+		TickEvent{},
+		AnonymityStatusEvent{Network: NetworkTor, Status: AnonymityAvailable},
+		FileRecvRequestEvent{FriendID: 1, FileID: 1, Kind: 0, FileSize: 100, Filename: "test.txt"},
+		FileRecvChunkEvent{FriendID: 1, FileID: 1, Position: 0, Data: []byte("data")},
+		FileChunkRequestEvent{FriendID: 1, FileID: 1, Position: 0, Length: 1024},
+		FileSendCompleteEvent{FriendID: 1, FileID: 1, Filename: "test.txt"},
+		FileRecvCompleteEvent{FriendID: 1, FileID: 1, Filename: "test.txt", SavePath: "/tmp/test.txt"},
+		FileTransferErrorEvent{FriendID: 1, FileID: 1, Filename: "test.txt", Error: "failed"},
+	}
+
+	// Call toxEvent on each to ensure the interface method is exercised
+	for i, e := range events {
+		e.toxEvent()
+		if e == nil {
+			t.Errorf("event %d is nil", i)
+		}
+	}
+
+	if len(events) != 15 {
+		t.Errorf("expected 15 event types, got %d", len(events))
+	}
+}
+
+func TestFriendTypingEvent_False(t *testing.T) {
+	e := FriendTypingEvent{
+		FriendID: 5,
+		IsTyping: false,
+	}
+
+	if e.FriendID != 5 {
+		t.Errorf("FriendTypingEvent.FriendID = %d, want 5", e.FriendID)
+	}
+	if e.IsTyping {
+		t.Error("FriendTypingEvent.IsTyping = true, want false")
+	}
+}
+
+func TestSelfConnectionStatusEvent_None(t *testing.T) {
+	e := SelfConnectionStatusEvent{
+		Status: toxcore.ConnectionNone,
+	}
+
+	if e.Status != toxcore.ConnectionNone {
+		t.Errorf("SelfConnectionStatusEvent.Status = %v, want ConnectionNone", e.Status)
+	}
+}

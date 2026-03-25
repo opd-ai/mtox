@@ -1,4 +1,0 @@
-?   	github.com/opd-ai/mtox/cmd/mtox	[no test files]
-ok  	github.com/opd-ai/mtox/internal/tox	1.201s
-ok  	github.com/opd-ai/mtox/internal/tui	1.031s
-?   	github.com/opd-ai/mtox/internal/version	[no test files]

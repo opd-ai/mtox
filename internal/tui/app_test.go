@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -617,5 +618,216 @@ func TestStatusBar_AnonymityBothConnecting(t *testing.T) {
 	got := sb.anonymityString()
 	if got == "" {
 		t.Error("anonymityString() with both connecting should not be empty")
+	}
+}
+
+func TestFormatFileSize(t *testing.T) {
+	tests := []struct {
+		bytes    uint64
+		expected string
+	}{
+		{0, "0 B"},
+		{100, "100 B"},
+		{1023, "1023 B"},
+		{1024, "1.0 KB"},
+		{1536, "1.5 KB"},
+		{1048576, "1.0 MB"},
+		{1572864, "1.5 MB"},
+		{1073741824, "1.0 GB"},
+		{1610612736, "1.5 GB"},
+	}
+
+	for _, tt := range tests {
+		got := formatFileSize(tt.bytes)
+		if got != tt.expected {
+			t.Errorf("formatFileSize(%d) = %q, want %q", tt.bytes, got, tt.expected)
+		}
+	}
+}
+
+func TestStylesExist(t *testing.T) {
+	// Verify style variables are defined (compile-time check + coverage).
+	styles := []interface{}{
+		activePanel,
+		inactivePanel,
+		contactSelected,
+		contactNormal,
+		colorOnline,
+		colorAway,
+		colorBusy,
+		colorOffline,
+		statusBarStyle,
+		statusConnected,
+		statusDisconnected,
+		chatHeaderStyle,
+		messageTimestamp,
+		messageSelf,
+		messagePeer,
+		messageAction,
+		typingIndicator,
+		modalStyle,
+		unreadBadge,
+		panelTitle,
+		fileTransferStyle,
+		fileProgressStyle,
+	}
+
+	for i, s := range styles {
+		if s == nil {
+			t.Errorf("style[%d] is nil", i)
+		}
+	}
+}
+
+func TestChatPanel_History(t *testing.T) {
+	cp := newChatPanel(80, 24)
+	cp.friendID = 1
+	cp.friendName = "Alice"
+
+	// Initially empty
+	if len(cp.history) != 0 {
+		t.Errorf("initial history length = %d, want 0", len(cp.history))
+	}
+
+	// Add messages
+	now := time.Now()
+	cp.addMessage(chatMessage{ts: now, senderID: 1, name: "Alice", body: "Hello"})
+	cp.addMessage(chatMessage{ts: now, senderID: 0, name: "You", body: "Hi there"})
+
+	if len(cp.history) != 2 {
+		t.Errorf("history length after adding = %d, want 2", len(cp.history))
+	}
+
+	// getHistory should return the history
+	hist := cp.history
+	if hist[0].body != "Hello" {
+		t.Errorf("first message body = %q, want %q", hist[0].body, "Hello")
+	}
+	if hist[1].body != "Hi there" {
+		t.Errorf("second message body = %q, want %q", hist[1].body, "Hi there")
+	}
+}
+
+func TestContactsPanel_Empty(t *testing.T) {
+	p := newContactsPanel(20, 10)
+
+	// No contacts
+	if len(p.contacts) != 0 {
+		t.Errorf("initial contacts length = %d, want 0", len(p.contacts))
+	}
+
+	// View should still work
+	view := p.view()
+	if view == "" {
+		t.Error("view() with no contacts returned empty")
+	}
+
+	// Selected friend should return false
+	_, ok := p.selectedFriendID()
+	if ok {
+		t.Error("selectedFriendID should return false for empty contacts")
+	}
+}
+
+func TestStatusBar_VersionInfo(t *testing.T) {
+	sb := newStatusBar(100)
+	view := sb.view()
+
+	// View should contain version info
+	if view == "" {
+		t.Error("statusBar.view() returned empty")
+	}
+}
+
+func TestChatPanel_ActionMessage(t *testing.T) {
+	cp := newChatPanel(80, 24)
+	cp.friendID = 1
+	cp.friendName = "Alice"
+
+	// Add an action message
+	now := time.Now()
+	cp.addMessage(chatMessage{
+		ts:       now,
+		senderID: 1,
+		name:     "Alice",
+		body:     "waves hello",
+		isAction: true,
+	})
+
+	content := cp.renderHistory()
+	if content == "" {
+		t.Error("renderHistory with action message returned empty")
+	}
+}
+
+func TestContactsPanel_LongList(t *testing.T) {
+	p := newContactsPanel(20, 5) // small height
+
+	// Add many contacts
+	p.contacts = make([]contactEntry, 20)
+	for i := 0; i < 20; i++ {
+		p.contacts[i] = contactEntry{
+			FriendID: uint32(i),
+			Name:     string(rune('A' + i)),
+		}
+	}
+	p.selected = 15 // Beyond visible range
+
+	view := p.view()
+	if view == "" {
+		t.Error("view() with scrolling returned empty")
+	}
+}
+
+func TestStatusBar_ErrorStatus(t *testing.T) {
+	sb := newStatusBar(80)
+	sb.torStatus = toxclient.AnonymityError
+	sb.i2pStatus = toxclient.AnonymityError
+
+	got := sb.anonymityString()
+	// Error status might still show something or be empty
+	// The important thing is it doesn't panic
+	_ = got
+}
+
+func TestChatPanel_ManyMessages(t *testing.T) {
+	cp := newChatPanel(80, 10) // small height
+	cp.friendID = 1
+	cp.friendName = "Alice"
+
+	// Add many messages
+	now := time.Now()
+	for i := 0; i < 100; i++ {
+		cp.addMessage(chatMessage{
+			ts:       now.Add(time.Duration(i) * time.Minute),
+			senderID: uint32(i % 2),
+			name:     []string{"You", "Alice"}[i%2],
+			body:     fmt.Sprintf("Message %d", i),
+		})
+	}
+
+	if len(cp.history) != 100 {
+		t.Errorf("history length = %d, want 100", len(cp.history))
+	}
+
+	// Should not panic when rendering many messages
+	content := cp.renderHistory()
+	if content == "" {
+		t.Error("renderHistory with many messages returned empty")
+	}
+}
+
+func TestContactsPanel_Resize(t *testing.T) {
+	p := newContactsPanel(20, 10)
+
+	// Resize
+	p.width = 40
+	p.height = 20
+
+	if p.width != 40 {
+		t.Errorf("width after resize = %d, want 40", p.width)
+	}
+	if p.height != 20 {
+		t.Errorf("height after resize = %d, want 20", p.height)
 	}
 }

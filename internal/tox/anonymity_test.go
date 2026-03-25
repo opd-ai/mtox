@@ -494,3 +494,105 @@ func TestAnonymityManager_EmitAfterStop(t *testing.T) {
 		// Expected
 	}
 }
+
+func TestAnonymityManager_CalculateNextBackoff(t *testing.T) {
+	events := make(chan ToxEvent, 10)
+	mgr := NewAnonymityManager(events)
+	defer mgr.Stop()
+
+	tests := []struct {
+		current time.Duration
+		max     time.Duration
+		want    time.Duration
+	}{
+		{100 * time.Millisecond, 1 * time.Second, 150 * time.Millisecond}, // 100 + 50 = 150
+		{1 * time.Second, 5 * time.Second, 1500 * time.Millisecond},       // 1000 + 500 = 1500
+		{4 * time.Second, 5 * time.Second, 5 * time.Second},               // 4000 + 2000 = 6000, capped at 5000
+		{10 * time.Second, 5 * time.Second, 5 * time.Second},              // Already over max
+	}
+
+	for _, tt := range tests {
+		got := mgr.calculateNextBackoff(tt.current, tt.max)
+		if got != tt.want {
+			t.Errorf("calculateNextBackoff(%v, %v) = %v, want %v", tt.current, tt.max, got, tt.want)
+		}
+	}
+}
+
+func TestAnonymityManager_IsStopped(t *testing.T) {
+	events := make(chan ToxEvent, 10)
+	mgr := NewAnonymityManager(events)
+
+	// Initially not stopped
+	if mgr.isStopped() {
+		t.Error("isStopped() should return false before Stop()")
+	}
+
+	mgr.Stop()
+
+	// After stop
+	if !mgr.isStopped() {
+		t.Error("isStopped() should return true after Stop()")
+	}
+}
+
+func TestAnonymityManager_WaitWithBackoff_NotCancelled(t *testing.T) {
+	events := make(chan ToxEvent, 10)
+	mgr := NewAnonymityManager(events)
+	defer mgr.Stop()
+
+	// Short backoff should not be cancelled
+	cancelled := mgr.waitWithBackoff(10 * time.Millisecond)
+	if cancelled {
+		t.Error("waitWithBackoff should not be cancelled with short duration")
+	}
+}
+
+func TestAnonymityManager_WaitWithBackoff_Cancelled(t *testing.T) {
+	events := make(chan ToxEvent, 10)
+	mgr := NewAnonymityManager(events)
+
+	// Stop immediately
+	mgr.Stop()
+
+	// Should be cancelled immediately
+	cancelled := mgr.waitWithBackoff(1 * time.Hour)
+	if !cancelled {
+		t.Error("waitWithBackoff should be cancelled after Stop()")
+	}
+}
+
+func TestAnonymityManager_StatusMethods(t *testing.T) {
+	events := make(chan ToxEvent, 10)
+	mgr := NewAnonymityManager(events)
+	defer mgr.Stop()
+
+	// Test all status methods with various values
+	mgr.mu.Lock()
+	mgr.torStatus = AnonymityAvailable
+	mgr.torAddress = "example.onion"
+	mgr.torError = "no error"
+	mgr.i2pStatus = AnonymityConnecting
+	mgr.i2pAddress = "example.b32.i2p"
+	mgr.i2pError = "connecting"
+	mgr.mu.Unlock()
+
+	if mgr.TorStatus() != AnonymityAvailable {
+		t.Errorf("TorStatus() = %v, want AnonymityAvailable", mgr.TorStatus())
+	}
+	if mgr.I2PStatus() != AnonymityConnecting {
+		t.Errorf("I2PStatus() = %v, want AnonymityConnecting", mgr.I2PStatus())
+	}
+	if mgr.TorAddress() != "example.onion" {
+		t.Errorf("TorAddress() = %q, want %q", mgr.TorAddress(), "example.onion")
+	}
+	if mgr.I2PAddress() != "example.b32.i2p" {
+		t.Errorf("I2PAddress() = %q, want %q", mgr.I2PAddress(), "example.b32.i2p")
+	}
+	if mgr.TorError() != "no error" {
+		t.Errorf("TorError() = %q, want %q", mgr.TorError(), "no error")
+	}
+	if mgr.I2PError() != "connecting" {
+		t.Errorf("I2PError() = %q, want %q", mgr.I2PError(), "connecting")
+	}
+}

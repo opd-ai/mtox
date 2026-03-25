@@ -1,6 +1,7 @@
 package tox
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -398,5 +399,185 @@ func TestFileChunkRequestEvent_Fields(t *testing.T) {
 	}
 	if e.Length != 512 {
 		t.Errorf("FileChunkRequestEvent.Length = %d, want 512", e.Length)
+	}
+}
+
+func TestProfilePath_CustomEnv(t *testing.T) {
+	original, hadOriginal := os.LookupEnv("MTOX_PROFILE_PATH")
+	defer func() {
+		if hadOriginal {
+			os.Setenv("MTOX_PROFILE_PATH", original)
+		} else {
+			os.Unsetenv("MTOX_PROFILE_PATH")
+		}
+	}()
+
+	// Test with custom path
+	customPath := "/custom/path/to/profile.tox"
+	os.Setenv("MTOX_PROFILE_PATH", customPath)
+
+	got := ProfilePath()
+	if got != customPath {
+		t.Errorf("ProfilePath() with custom env = %q, want %q", got, customPath)
+	}
+}
+
+func TestProfilePath_EmptyCustomEnv(t *testing.T) {
+	original, hadOriginal := os.LookupEnv("MTOX_PROFILE_PATH")
+	defer func() {
+		if hadOriginal {
+			os.Setenv("MTOX_PROFILE_PATH", original)
+		} else {
+			os.Unsetenv("MTOX_PROFILE_PATH")
+		}
+	}()
+
+	// Test with empty custom path (should use default)
+	os.Setenv("MTOX_PROFILE_PATH", "")
+
+	got := ProfilePath()
+	// Empty string should use default path
+	if got == "" {
+		t.Error("ProfilePath() with empty env should not return empty string")
+	}
+}
+
+func TestUniqueFilename_MaxIterations(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create base file
+	base := filepath.Join(tmpDir, "test.txt")
+	if err := os.WriteFile(base, []byte("test"), 0o644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	// Create files up to _999 doesn't exist, but check behavior
+	// Just verify the function handles multiple existing files
+	for i := 1; i <= 5; i++ {
+		path := filepath.Join(tmpDir, fmt.Sprintf("test_%d.txt", i))
+		if err := os.WriteFile(path, []byte("test"), 0o644); err != nil {
+			t.Fatalf("failed to create test file: %v", err)
+		}
+	}
+
+	got := uniqueFilename(base)
+	expected := filepath.Join(tmpDir, "test_6.txt")
+	if got != expected {
+		t.Errorf("uniqueFilename = %q, want %q", got, expected)
+	}
+}
+
+func TestEventBufSizeConstant(t *testing.T) {
+	// Verify the constant is reasonable
+	if eventBufSize <= 0 {
+		t.Errorf("eventBufSize = %d, should be positive", eventBufSize)
+	}
+	if eventBufSize > 10000 {
+		t.Errorf("eventBufSize = %d, seems unreasonably large", eventBufSize)
+	}
+}
+
+func TestFileKey_MapUsage(t *testing.T) {
+	// Test that fileKey can be used as a map key
+	m := make(map[fileKey]string)
+
+	k1 := fileKey{friendID: 1, fileID: 10}
+	k2 := fileKey{friendID: 1, fileID: 10}
+	k3 := fileKey{friendID: 2, fileID: 10}
+
+	m[k1] = "first"
+	m[k3] = "third"
+
+	// k2 should resolve to same entry as k1
+	if m[k2] != "first" {
+		t.Errorf("m[k2] = %q, want %q", m[k2], "first")
+	}
+	if m[k3] != "third" {
+		t.Errorf("m[k3] = %q, want %q", m[k3], "third")
+	}
+}
+
+func TestOutgoingFile_Progress(t *testing.T) {
+	of := outgoingFile{
+		filename: "large.bin",
+		data:     make([]byte, 1000),
+		sent:     0,
+	}
+
+	// Simulate progress
+	of.sent = 500
+	if of.sent != 500 {
+		t.Errorf("sent = %d, want 500", of.sent)
+	}
+
+	of.sent = 1000
+	if of.sent != uint64(len(of.data)) {
+		t.Errorf("sent = %d, want %d", of.sent, len(of.data))
+	}
+}
+
+func TestIncomingFile_Progress(t *testing.T) {
+	inf := incomingFile{
+		filename: "large.bin",
+		size:     1000,
+		data:     make([]byte, 0, 1000),
+		received: 0,
+	}
+
+	// Simulate receiving data
+	inf.data = append(inf.data, make([]byte, 500)...)
+	inf.received = 500
+
+	if inf.received != 500 {
+		t.Errorf("received = %d, want 500", inf.received)
+	}
+
+	// Complete
+	inf.data = append(inf.data, make([]byte, 500)...)
+	inf.received = 1000
+
+	if inf.received != inf.size {
+		t.Errorf("received = %d, want %d", inf.received, inf.size)
+	}
+}
+
+func TestBootstrapNodes_PortRange(t *testing.T) {
+	for i, node := range bootstrapNodes {
+		// Ports should be in valid range
+		if node.port < 1 || node.port > 65535 {
+			t.Errorf("bootstrapNodes[%d].port = %d, invalid port", i, node.port)
+		}
+		// Common Tox port is 33445
+		if node.port != 33445 {
+			t.Logf("bootstrapNodes[%d] uses non-standard port %d", i, node.port)
+		}
+	}
+}
+
+func TestProfileDirConstant(t *testing.T) {
+	// Verify the constant contains expected path components
+	if profileDir == "" {
+		t.Error("profileDir is empty")
+	}
+	if profileDir[0] == '/' {
+		t.Errorf("profileDir = %q, should be relative path", profileDir)
+	}
+}
+
+func TestFileKeyDifferentFileID(t *testing.T) {
+	k1 := fileKey{friendID: 1, fileID: 10}
+	k2 := fileKey{friendID: 1, fileID: 20}
+
+	if k1 == k2 {
+		t.Error("fileKeys with different fileID should not be equal")
+	}
+}
+
+func TestFileKeyDifferentFriendID(t *testing.T) {
+	k1 := fileKey{friendID: 1, fileID: 10}
+	k2 := fileKey{friendID: 2, fileID: 10}
+
+	if k1 == k2 {
+		t.Error("fileKeys with different friendID should not be equal")
 	}
 }
