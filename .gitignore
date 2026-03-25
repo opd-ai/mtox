@@ -35,3 +35,14 @@ data-dir*
 i2pkeys
 onionkeys
 
+# Analysis output files
+*-baseline.json
+*-post.json
+pre-cleanup.json
+post-cleanup.json
+diff-report*.json
+
+# Loop artifacts
+*.log
+loop.log
+
