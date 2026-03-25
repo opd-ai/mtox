@@ -31,7 +31,7 @@ var bootstrapNodes = []struct {
 	{"node.tox.biribiri.org", 33445, "F404ABAA1C99A9D37D61AB54898F56793E1DEF8BD46B1038B9D822E8460FAB67"},
 	{"tox.abilinski.com", 33445, "10C00EB250C3233E343E2AEBA07D4A3D705624D19C91AEFEFD82553EFF0F2A7C"},
 	{"tox.novg.net", 33445, "D527E5847F8330D628DAB1814F0A422F6DC9D0A300E6C357634EE2DA88C35463"},
-	{"205.185.116.116", 53, "A179B09749AC826FF01F37A9613F6B57118AE069A10352D4A2865A4DB0B4F74"},
+	{"205.185.116.116", 33445, "D527D7C17124CC78D234F235537F9B43B6A98CFA667769420490005D17081023"},
 }
 
 // Client wraps a toxcore.Tox instance and exposes events via a channel.
@@ -42,6 +42,32 @@ type Client struct {
 	stopOnce     sync.Once
 	done         chan struct{}
 	anonymityMgr *AnonymityManager
+
+	// File transfer state
+	fileMu       sync.Mutex
+	sendingFiles map[fileKey]*outgoingFile
+	recvFiles    map[fileKey]*incomingFile
+}
+
+// fileKey uniquely identifies a file transfer.
+type fileKey struct {
+	friendID uint32
+	fileID   uint32
+}
+
+// outgoingFile tracks an outgoing file transfer.
+type outgoingFile struct {
+	filename string
+	data     []byte
+	sent     uint64
+}
+
+// incomingFile tracks an incoming file transfer.
+type incomingFile struct {
+	filename string
+	size     uint64
+	data     []byte
+	received uint64
 }
 
 // IsAnonOnlyMode returns true if MTOX_ANON_ONLY=1 is set.
@@ -80,9 +106,11 @@ func NewClient() (*Client, error) {
 	}
 
 	c := &Client{
-		tox:    tox,
-		events: make(chan ToxEvent, eventBufSize),
-		done:   make(chan struct{}),
+		tox:          tox,
+		events:       make(chan ToxEvent, eventBufSize),
+		done:         make(chan struct{}),
+		sendingFiles: make(map[fileKey]*outgoingFile),
+		recvFiles:    make(map[fileKey]*incomingFile),
 	}
 
 	// Initialize the anonymity network manager with the events channel
@@ -94,7 +122,11 @@ func NewClient() (*Client, error) {
 }
 
 // ProfilePath returns the path to the profile file.
+// If MTOX_PROFILE_PATH is set, it uses that path instead of the default.
 func ProfilePath() string {
+	if customPath := os.Getenv("MTOX_PROFILE_PATH"); customPath != "" {
+		return customPath
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		home = "."
@@ -130,6 +162,25 @@ func (c *Client) registerCallbacks() {
 
 	c.tox.OnConnectionStatus(func(status toxcore.ConnectionStatus) {
 		c.emit(SelfConnectionStatusEvent{Status: status})
+	})
+
+	// File transfer callbacks
+	c.tox.OnFileRecv(func(friendID, fileID, kind uint32, fileSize uint64, filename string) {
+		c.emit(FileRecvRequestEvent{
+			FriendID: friendID,
+			FileID:   fileID,
+			Kind:     kind,
+			FileSize: fileSize,
+			Filename: filename,
+		})
+	})
+
+	c.tox.OnFileRecvChunk(func(friendID, fileID uint32, position uint64, data []byte) {
+		c.handleFileRecvChunk(friendID, fileID, position, data)
+	})
+
+	c.tox.OnFileChunkRequest(func(friendID, fileID uint32, position uint64, length int) {
+		c.handleFileChunkRequest(friendID, fileID, position, length)
 	})
 }
 
@@ -167,32 +218,58 @@ func (c *Client) iterateLoop() {
 	defer timer.Stop()
 
 	for {
-		select {
-		case <-c.done:
+		if c.shouldStopLoop() {
 			return
-		default:
 		}
 
 		c.tox.Iterate()
-		interval = c.tox.IterationInterval()
-		if interval < minInterval {
-			interval = minInterval
-		}
+		interval = c.calculateNextInterval(minInterval)
+		c.resetTimer(timer, interval)
 
-		// Drain and reset the timer safely.
-		if !timer.Stop() {
-			select {
-			case <-timer.C:
-			default:
-			}
-		}
-		timer.Reset(interval)
-
-		select {
-		case <-c.done:
+		if c.waitForNextIteration(timer) {
 			return
-		case <-timer.C:
 		}
+	}
+}
+
+// shouldStopLoop checks if the iteration loop should terminate.
+func (c *Client) shouldStopLoop() bool {
+	select {
+	case <-c.done:
+		return true
+	default:
+		return false
+	}
+}
+
+// calculateNextInterval determines the next iteration interval.
+func (c *Client) calculateNextInterval(minInterval time.Duration) time.Duration {
+	interval := c.tox.IterationInterval()
+	if interval < minInterval {
+		return minInterval
+	}
+	return interval
+}
+
+// resetTimer safely drains and resets the timer for the next interval.
+func (c *Client) resetTimer(timer *time.Timer, interval time.Duration) {
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
+		}
+	}
+	timer.Reset(interval)
+}
+
+// waitForNextIteration waits for the timer or stop signal.
+// Returns true if the loop should stop.
+func (c *Client) waitForNextIteration(timer *time.Timer) bool {
+	select {
+	case <-c.done:
+		return true
+	case <-timer.C:
+		return false
 	}
 }
 
@@ -329,4 +406,196 @@ func (c *Client) TorAddress() string {
 // I2PAddress returns the .b32.i2p address if available.
 func (c *Client) I2PAddress() string {
 	return c.anonymityMgr.I2PAddress()
+}
+
+// File transfer methods
+
+// FileSend initiates a file transfer to a friend.
+// Returns the file transfer ID on success.
+func (c *Client) FileSend(friendID uint32, filename string, data []byte) (uint32, error) {
+	// Use zero file ID (let toxcore assign)
+	var fileID [32]byte
+	fid, err := c.tox.FileSend(friendID, 0, uint64(len(data)), fileID, filename)
+	if err != nil {
+		return 0, fmt.Errorf("FileSend: %w", err)
+	}
+
+	// Track the outgoing file
+	c.fileMu.Lock()
+	c.sendingFiles[fileKey{friendID, fid}] = &outgoingFile{
+		filename: filename,
+		data:     data,
+		sent:     0,
+	}
+	c.fileMu.Unlock()
+
+	return fid, nil
+}
+
+// FileAccept accepts an incoming file transfer.
+func (c *Client) FileAccept(friendID, fileID uint32, fileSize uint64, filename string) error {
+	// Initialize the incoming file tracker
+	c.fileMu.Lock()
+	c.recvFiles[fileKey{friendID, fileID}] = &incomingFile{
+		filename: filename,
+		size:     fileSize,
+		data:     make([]byte, 0, fileSize),
+		received: 0,
+	}
+	c.fileMu.Unlock()
+
+	// Resume the transfer
+	return c.tox.FileControl(friendID, fileID, toxcore.FileControlResume)
+}
+
+// FileReject rejects an incoming file transfer.
+func (c *Client) FileReject(friendID, fileID uint32) error {
+	return c.tox.FileControl(friendID, fileID, toxcore.FileControlCancel)
+}
+
+// FilePause pauses an ongoing file transfer.
+func (c *Client) FilePause(friendID, fileID uint32) error {
+	return c.tox.FileControl(friendID, fileID, toxcore.FileControlPause)
+}
+
+// handleFileRecvChunk processes incoming file data chunks.
+func (c *Client) handleFileRecvChunk(friendID, fileID uint32, position uint64, data []byte) {
+	key := fileKey{friendID, fileID}
+
+	c.fileMu.Lock()
+	f, ok := c.recvFiles[key]
+	if !ok {
+		c.fileMu.Unlock()
+		return
+	}
+
+	// Empty data indicates transfer complete
+	if len(data) == 0 {
+		filename := f.filename
+		fileData := f.data
+		delete(c.recvFiles, key)
+		c.fileMu.Unlock()
+
+		// Save file to downloads directory
+		savePath := c.saveReceivedFile(filename, fileData)
+		c.emit(FileRecvCompleteEvent{
+			FriendID: friendID,
+			FileID:   fileID,
+			Filename: filename,
+			SavePath: savePath,
+		})
+		return
+	}
+
+	// Append data at position
+	if position+uint64(len(data)) > uint64(cap(f.data)) {
+		// Extend capacity if needed
+		newData := make([]byte, len(f.data), position+uint64(len(data))+1024)
+		copy(newData, f.data)
+		f.data = newData
+	}
+	if position+uint64(len(data)) > uint64(len(f.data)) {
+		f.data = f.data[:position+uint64(len(data))]
+	}
+	copy(f.data[position:], data)
+	f.received = position + uint64(len(data))
+	c.fileMu.Unlock()
+
+	// Emit progress event
+	c.emit(FileRecvChunkEvent{
+		FriendID: friendID,
+		FileID:   fileID,
+		Position: f.received,
+		Data:     data,
+	})
+}
+
+// handleFileChunkRequest sends requested file chunks.
+func (c *Client) handleFileChunkRequest(friendID, fileID uint32, position uint64, length int) {
+	key := fileKey{friendID, fileID}
+
+	c.fileMu.Lock()
+	f, ok := c.sendingFiles[key]
+	if !ok {
+		c.fileMu.Unlock()
+		return
+	}
+
+	// Length 0 indicates transfer complete
+	if length == 0 {
+		filename := f.filename
+		delete(c.sendingFiles, key)
+		c.fileMu.Unlock()
+
+		c.emit(FileSendCompleteEvent{
+			FriendID: friendID,
+			FileID:   fileID,
+			Filename: filename,
+		})
+		return
+	}
+
+	// Send the requested chunk
+	end := position + uint64(length)
+	if end > uint64(len(f.data)) {
+		end = uint64(len(f.data))
+	}
+	chunk := f.data[position:end]
+	f.sent = end
+	c.fileMu.Unlock()
+
+	if err := c.tox.FileSendChunk(friendID, fileID, position, chunk); err != nil {
+		c.emit(FileTransferErrorEvent{
+			FriendID: friendID,
+			FileID:   fileID,
+			Filename: f.filename,
+			Error:    err.Error(),
+		})
+	}
+}
+
+// saveReceivedFile saves a received file to the downloads directory.
+// Returns the full path where the file was saved.
+func (c *Client) saveReceivedFile(filename string, data []byte) string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = "."
+	}
+
+	downloadsDir := filepath.Join(home, profileDir, "downloads")
+	if err := os.MkdirAll(downloadsDir, 0o700); err != nil {
+		log.Printf("mtox: failed to create downloads dir: %v", err)
+		return ""
+	}
+
+	// Generate collision-safe filename
+	savePath := filepath.Join(downloadsDir, filepath.Base(filename))
+	savePath = uniqueFilename(savePath)
+
+	if err := os.WriteFile(savePath, data, 0o600); err != nil {
+		log.Printf("mtox: failed to save file: %v", err)
+		return ""
+	}
+
+	return savePath
+}
+
+// uniqueFilename returns a unique filename by appending a number if needed.
+func uniqueFilename(path string) string {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return path
+	}
+
+	dir := filepath.Dir(path)
+	ext := filepath.Ext(path)
+	base := filepath.Base(path)
+	name := base[:len(base)-len(ext)]
+
+	for i := 1; i < 1000; i++ {
+		newPath := filepath.Join(dir, fmt.Sprintf("%s_%d%s", name, i, ext))
+		if _, err := os.Stat(newPath); os.IsNotExist(err) {
+			return newPath
+		}
+	}
+	return path
 }

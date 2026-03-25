@@ -90,4 +90,12 @@ var (
 			Foreground(lipgloss.Color("229")).
 			PaddingLeft(1).
 			Underline(true)
+
+	// File transfer styles.
+	fileTransferStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("33")).
+				PaddingLeft(1)
+
+	fileProgressStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("243"))
 )

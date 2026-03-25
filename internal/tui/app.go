@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -27,12 +29,21 @@ const (
 	modalNone modalKind = iota
 	modalAddFriend
 	modalFriendRequest
+	modalFileRequest
 )
 
 // pendingRequest holds an unresolved incoming friend request.
 type pendingRequest struct {
 	PublicKey [32]byte
 	Message   string
+}
+
+// pendingFileRequest holds an unresolved incoming file transfer request.
+type pendingFileRequest struct {
+	FriendID uint32
+	FileID   uint32
+	Filename string
+	FileSize uint64
 }
 
 // App is the root bubbletea model.
@@ -51,6 +62,10 @@ type App struct {
 	modalPrompt  string
 	pendingReqs  []pendingRequest
 	activeReqIdx int
+
+	// file transfer state
+	pendingFileReqs  []pendingFileRequest
+	activeFileReqIdx int
 
 	// current conversation
 	activeFriendID  uint32
@@ -93,6 +108,7 @@ func waitForToxEvent(events <-chan toxclient.ToxEvent) tea.Cmd {
 	}
 }
 
+// tickCmd returns a command that triggers periodic UI updates.
 func tickCmd() tea.Cmd {
 	return tea.Tick(500*time.Millisecond, func(t time.Time) tea.Msg {
 		return toxclient.TickEvent{}
@@ -114,14 +130,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Tox events
 	case toxclient.FriendRequestEvent:
-		a.pendingReqs = append(a.pendingReqs, pendingRequest{
-			PublicKey: m.PublicKey,
-			Message:   m.Message,
-		})
-		if a.modal == modalNone {
-			a.openFriendRequestModal()
-		}
-		return a, waitForToxEvent(a.client.Events())
+		return a.handleFriendRequestEvent(m)
 
 	case toxclient.FriendMessageEvent:
 		a.handleIncomingMessage(m.FriendID, m.Message, false)
@@ -133,11 +142,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, waitForToxEvent(a.client.Events())
 
 	case toxclient.FriendNameEvent:
-		a.contacts.updateName(m.FriendID, m.Name)
-		if m.FriendID == a.activeFriendID {
-			a.activeFriend = m.Name
-			a.chat.friendName = m.Name
-		}
+		a.handleFriendNameChange(m)
 		return a, waitForToxEvent(a.client.Events())
 
 	case toxclient.FriendStatusMessageEvent:
@@ -145,10 +150,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, waitForToxEvent(a.client.Events())
 
 	case toxclient.FriendTypingEvent:
-		if m.FriendID == a.activeFriendID {
-			a.chat.isTyping = m.IsTyping
-			a.chat.refreshViewport()
-		}
+		a.handleFriendTyping(m)
 		return a, waitForToxEvent(a.client.Events())
 
 	case toxclient.SelfConnectionStatusEvent:
@@ -156,30 +158,114 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, waitForToxEvent(a.client.Events())
 
 	case toxclient.AnonymityStatusEvent:
-		switch m.Network {
-		case "tor":
-			a.statusBar.torStatus = m.Status
-			if m.Status == toxclient.AnonymityAvailable && m.Address != "" {
-				a.setNotification("Tor hidden service ready")
-			}
-		case "i2p":
-			a.statusBar.i2pStatus = m.Status
-			if m.Status == toxclient.AnonymityAvailable && m.Address != "" {
-				a.setNotification("I2P destination ready")
-			}
-		}
+		a.handleAnonymityStatusChange(m)
+		return a, waitForToxEvent(a.client.Events())
+
+	// File transfer events
+	case toxclient.FileRecvRequestEvent:
+		return a.handleFileRecvRequest(m)
+
+	case toxclient.FileRecvCompleteEvent:
+		a.handleFileRecvComplete(m)
+		return a, waitForToxEvent(a.client.Events())
+
+	case toxclient.FileSendCompleteEvent:
+		a.handleFileSendComplete(m)
+		return a, waitForToxEvent(a.client.Events())
+
+	case toxclient.FileTransferErrorEvent:
+		a.setNotification(fmt.Sprintf("File transfer failed: %s", m.Error))
+		return a, waitForToxEvent(a.client.Events())
+
+	case toxclient.FileRecvChunkEvent:
 		return a, waitForToxEvent(a.client.Events())
 
 	case toxclient.TickEvent:
-		a.refreshContacts()
-		// Clear expired notifications.
-		if !a.notifyExpiry.IsZero() && time.Now().After(a.notifyExpiry) {
-			a.notification = ""
-		}
+		a.handleTick()
 		return a, tickCmd()
 	}
 
 	return a, nil
+}
+
+// handleFriendRequestEvent processes an incoming friend request.
+func (a App) handleFriendRequestEvent(m toxclient.FriendRequestEvent) (tea.Model, tea.Cmd) {
+	a.pendingReqs = append(a.pendingReqs, pendingRequest{
+		PublicKey: m.PublicKey,
+		Message:   m.Message,
+	})
+	if a.modal == modalNone {
+		a.openFriendRequestModal()
+	}
+	return a, waitForToxEvent(a.client.Events())
+}
+
+// handleFriendNameChange updates the display name when a friend changes theirs.
+func (a *App) handleFriendNameChange(m toxclient.FriendNameEvent) {
+	a.contacts.updateName(m.FriendID, m.Name)
+	if m.FriendID == a.activeFriendID {
+		a.activeFriend = m.Name
+		a.chat.friendName = m.Name
+	}
+}
+
+// handleFriendTyping updates the typing indicator for the active conversation.
+func (a *App) handleFriendTyping(m toxclient.FriendTypingEvent) {
+	if m.FriendID == a.activeFriendID {
+		a.chat.isTyping = m.IsTyping
+		a.chat.refreshViewport()
+	}
+}
+
+// handleAnonymityStatusChange processes Tor/I2P status updates.
+func (a *App) handleAnonymityStatusChange(m toxclient.AnonymityStatusEvent) {
+	switch m.Network {
+	case "tor":
+		a.statusBar.torStatus = m.Status
+		if m.Status == toxclient.AnonymityAvailable && m.Address != "" {
+			a.setNotification("Tor hidden service ready")
+		}
+	case "i2p":
+		a.statusBar.i2pStatus = m.Status
+		if m.Status == toxclient.AnonymityAvailable && m.Address != "" {
+			a.setNotification("I2P destination ready")
+		}
+	}
+}
+
+// handleFileRecvRequest processes an incoming file transfer request.
+func (a App) handleFileRecvRequest(m toxclient.FileRecvRequestEvent) (tea.Model, tea.Cmd) {
+	a.pendingFileReqs = append(a.pendingFileReqs, pendingFileRequest{
+		FriendID: m.FriendID,
+		FileID:   m.FileID,
+		Filename: m.Filename,
+		FileSize: m.FileSize,
+	})
+	if a.modal == modalNone {
+		a.openFileRequestModal()
+	}
+	return a, waitForToxEvent(a.client.Events())
+}
+
+// handleFileRecvComplete processes a completed incoming file transfer.
+func (a *App) handleFileRecvComplete(m toxclient.FileRecvCompleteEvent) {
+	name := a.friendName(m.FriendID)
+	a.handleIncomingFileMessage(m.FriendID, fmt.Sprintf("Received file: %s → %s", m.Filename, m.SavePath))
+	a.setNotification(fmt.Sprintf("File from %s saved: %s", name, m.SavePath))
+}
+
+// handleFileSendComplete processes a completed outgoing file transfer.
+func (a *App) handleFileSendComplete(m toxclient.FileSendCompleteEvent) {
+	a.handleOutgoingFileMessage(m.FriendID, fmt.Sprintf("File sent: %s", m.Filename))
+	a.setNotification(fmt.Sprintf("File sent: %s", m.Filename))
+}
+
+// handleTick processes periodic UI updates.
+func (a *App) handleTick() {
+	a.refreshContacts()
+	if !a.notifyExpiry.IsZero() && time.Now().After(a.notifyExpiry) {
+		a.notification = ""
+	}
 }
 
 // handleResize processes window size changes.
@@ -215,75 +301,146 @@ func (a App) handleResize(m tea.WindowSizeMsg) (tea.Model, tea.Cmd) {
 
 // handleKey processes keyboard input.
 func (a App) handleKey(m tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Global shortcuts.
+	// Handle global shortcuts first.
+	if model, cmd, handled := a.handleGlobalShortcut(m); handled {
+		return model, cmd
+	}
+
+	// Handle modal-specific keys.
+	if model, cmd, handled := a.handleModalKey(m); handled {
+		return model, cmd
+	}
+
+	// Handle panel input.
+	return a.handlePanelInput(m)
+}
+
+// handleGlobalShortcut processes application-wide keyboard shortcuts.
+// Returns (model, cmd, handled) where handled indicates if the key was consumed.
+func (a App) handleGlobalShortcut(m tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 	switch m.String() {
 	case "ctrl+c", "ctrl+q":
-		return a.quit()
+		model, cmd := a.quit()
+		return model, cmd, true
 	case "ctrl+s":
-		if err := a.client.Save(); err != nil {
-			a.setNotification(fmt.Sprintf("Save failed: %v", err))
-		} else {
-			a.setNotification("Profile saved.")
-		}
-		return a, nil
+		a.handleSaveProfile()
+		return a, nil, true
 	case "ctrl+n":
 		if a.modal == modalNone {
 			a.openAddFriendModal()
 		}
-		return a, nil
+		return a, nil, true
 	case "ctrl+g":
 		a.setNotification("Group chat not yet supported.")
-		return a, nil
+		return a, nil, true
 	case "tab":
 		a.toggleFocus()
-		return a, nil
+		return a, nil, true
 	case "esc":
 		if a.modal != modalNone {
 			a.closeModal()
 		}
-		return a, nil
+		return a, nil, true
+	}
+	return a, nil, false
+}
+
+// handleSaveProfile attempts to save the Tox profile and notifies the user.
+func (a *App) handleSaveProfile() {
+	if err := a.client.Save(); err != nil {
+		a.setNotification(fmt.Sprintf("Save failed: %v", err))
+	} else {
+		a.setNotification("Profile saved.")
+	}
+}
+
+// handleModalKey processes keys when a modal dialog is active.
+// Returns (model, cmd, handled) where handled indicates if the key was consumed.
+func (a App) handleModalKey(m tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
+	switch m.String() {
 	case "enter":
-		if a.modal == modalAddFriend {
-			return a.submitAddFriend()
-		}
-		if a.modal == modalFriendRequest {
-			return a.acceptFriendRequest()
-		}
+		return a.handleModalEnter()
 	case "r":
-		if a.modal == modalFriendRequest {
-			return a.rejectFriendRequest()
-		}
+		return a.handleModalReject()
 	}
 
-	// Modal input.
+	// Handle text input for add friend modal.
 	if a.modal == modalAddFriend {
 		var cmd tea.Cmd
 		a.modalInput, cmd = a.modalInput.Update(m)
-		return a, cmd
+		return a, cmd, true
 	}
 
-	// Panel input.
+	return a, nil, false
+}
+
+// handleModalEnter processes the enter key in modal dialogs.
+func (a App) handleModalEnter() (tea.Model, tea.Cmd, bool) {
+	switch a.modal {
+	case modalAddFriend:
+		model, cmd := a.submitAddFriend()
+		return model, cmd, true
+	case modalFriendRequest:
+		model, cmd := a.acceptFriendRequest()
+		return model, cmd, true
+	case modalFileRequest:
+		model, cmd := a.acceptFileRequest()
+		return model, cmd, true
+	}
+	return a, nil, false
+}
+
+// handleModalReject processes the reject key in modal dialogs.
+func (a App) handleModalReject() (tea.Model, tea.Cmd, bool) {
+	switch a.modal {
+	case modalFriendRequest:
+		model, cmd := a.rejectFriendRequest()
+		return model, cmd, true
+	case modalFileRequest:
+		model, cmd := a.rejectFileRequest()
+		return model, cmd, true
+	}
+	return a, nil, false
+}
+
+// handlePanelInput processes keyboard input for the active panel.
+func (a App) handlePanelInput(m tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if a.focus == focusContacts {
-		selected, friendID := a.contacts.update(m)
-		if selected {
-			a.selectFriend(friendID)
-		}
+		a.handleContactsInput(m)
 	} else {
-		text, submitted := a.chat.update(m)
-		if submitted {
-			return a.sendMessage(text)
-		}
-		// Notify typing status only on state transitions.
-		if a.activeFriendID != 0 {
-			isTyping := len(a.chat.input.Value()) > 0
-			if isTyping != a.lastTypingState {
-				_ = a.client.SetTyping(a.activeFriendID, isTyping)
-				a.lastTypingState = isTyping
-			}
-		}
+		return a.handleChatInput(m)
 	}
-
 	return a, nil
+}
+
+// handleContactsInput processes keyboard input for the contacts panel.
+func (a *App) handleContactsInput(m tea.KeyMsg) {
+	selected, friendID := a.contacts.update(m)
+	if selected {
+		a.selectFriend(friendID)
+	}
+}
+
+// handleChatInput processes keyboard input for the chat panel.
+func (a App) handleChatInput(m tea.KeyMsg) (tea.Model, tea.Cmd) {
+	text, submitted := a.chat.update(m)
+	if submitted {
+		return a.sendMessage(text)
+	}
+	a.updateTypingStatus()
+	return a, nil
+}
+
+// updateTypingStatus notifies the remote peer of typing state changes.
+func (a *App) updateTypingStatus() {
+	if a.activeFriendID == 0 {
+		return
+	}
+	isTyping := len(a.chat.input.Value()) > 0
+	if isTyping != a.lastTypingState {
+		_ = a.client.SetTyping(a.activeFriendID, isTyping)
+		a.lastTypingState = isTyping
+	}
 }
 
 // handleMouse processes mouse events.
@@ -375,10 +532,19 @@ func (a *App) handleIncomingMessage(friendID uint32, text string, isAction bool)
 }
 
 // sendMessage sends the current input as a message to the active friend.
+// It also handles the /file command for sending files.
 func (a App) sendMessage(text string) (tea.Model, tea.Cmd) {
 	if a.activeFriendID == 0 {
 		return a, nil
 	}
+
+	// Handle /file command
+	if strings.HasPrefix(text, "/file ") {
+		filePath := strings.TrimPrefix(text, "/file ")
+		filePath = strings.TrimSpace(filePath)
+		return a.sendFile(filePath)
+	}
+
 	if err := a.client.SendMessage(a.activeFriendID, text); err != nil {
 		a.setNotification(fmt.Sprintf("Send failed: %v", err))
 		return a, nil
@@ -391,6 +557,37 @@ func (a App) sendMessage(text string) (tea.Model, tea.Cmd) {
 		body:     text,
 	}
 	a.chat.addMessage(msg)
+	return a, nil
+}
+
+// sendFile initiates a file transfer to the active friend.
+func (a App) sendFile(filePath string) (tea.Model, tea.Cmd) {
+	// Read the file
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		a.setNotification(fmt.Sprintf("Cannot read file: %v", err))
+		return a, nil
+	}
+
+	// Get filename from path
+	filename := filepath.Base(filePath)
+
+	// Initiate the transfer
+	_, err = a.client.FileSend(a.activeFriendID, filename, data)
+	if err != nil {
+		a.setNotification(fmt.Sprintf("File send failed: %v", err))
+		return a, nil
+	}
+
+	// Add a message to the chat indicating file transfer started
+	msg := chatMessage{
+		ts:       time.Now(),
+		senderID: 0,
+		name:     "You",
+		body:     fmt.Sprintf("📤 Sending file: %s (%d bytes)", filename, len(data)),
+	}
+	a.chat.addMessage(msg)
+	a.setNotification(fmt.Sprintf("Sending file: %s", filename))
 	return a, nil
 }
 
@@ -474,6 +671,104 @@ func (a App) rejectFriendRequest() (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
+// openFileRequestModal shows the incoming file request dialog.
+func (a *App) openFileRequestModal() {
+	if len(a.pendingFileReqs) == 0 {
+		return
+	}
+	a.modal = modalFileRequest
+	a.activeFileReqIdx = 0
+}
+
+// acceptFileRequest accepts the current pending file transfer.
+func (a App) acceptFileRequest() (tea.Model, tea.Cmd) {
+	if len(a.pendingFileReqs) == 0 {
+		a.closeModal()
+		return a, nil
+	}
+	req := a.pendingFileReqs[a.activeFileReqIdx]
+	if err := a.client.FileAccept(req.FriendID, req.FileID, req.FileSize, req.Filename); err != nil {
+		a.setNotification(fmt.Sprintf("Accept failed: %v", err))
+	} else {
+		name := a.friendName(req.FriendID)
+		a.setNotification(fmt.Sprintf("Receiving file from %s: %s", name, req.Filename))
+		// Add a message to the chat
+		a.handleIncomingFileMessage(req.FriendID, fmt.Sprintf("📥 Receiving file: %s (%d bytes)", req.Filename, req.FileSize))
+	}
+	a.pendingFileReqs = append(a.pendingFileReqs[:a.activeFileReqIdx], a.pendingFileReqs[a.activeFileReqIdx+1:]...)
+	if len(a.pendingFileReqs) == 0 {
+		a.closeModal()
+	}
+	return a, nil
+}
+
+// rejectFileRequest rejects the current pending file transfer.
+func (a App) rejectFileRequest() (tea.Model, tea.Cmd) {
+	if len(a.pendingFileReqs) == 0 {
+		a.closeModal()
+		return a, nil
+	}
+	req := a.pendingFileReqs[a.activeFileReqIdx]
+	_ = a.client.FileReject(req.FriendID, req.FileID)
+	a.pendingFileReqs = append(a.pendingFileReqs[:a.activeFileReqIdx], a.pendingFileReqs[a.activeFileReqIdx+1:]...)
+	if len(a.pendingFileReqs) == 0 {
+		a.closeModal()
+	}
+	return a, nil
+}
+
+// handleIncomingFileMessage adds a file-related message to the chat history.
+func (a *App) handleIncomingFileMessage(friendID uint32, text string) {
+	name := a.friendName(friendID)
+	msg := chatMessage{
+		ts:       time.Now(),
+		senderID: friendID,
+		name:     name,
+		body:     text,
+	}
+	if friendID == a.activeFriendID {
+		a.chat.addMessage(msg)
+	} else {
+		a.historyByFriend[friendID] = append(a.historyByFriend[friendID], msg)
+		a.contacts.incrementUnread(friendID)
+	}
+}
+
+// handleOutgoingFileMessage adds an outgoing file-related message to the chat.
+func (a *App) handleOutgoingFileMessage(friendID uint32, text string) {
+	msg := chatMessage{
+		ts:       time.Now(),
+		senderID: 0,
+		name:     "You",
+		body:     text,
+	}
+	if friendID == a.activeFriendID {
+		a.chat.addMessage(msg)
+	} else {
+		a.historyByFriend[friendID] = append(a.historyByFriend[friendID], msg)
+	}
+}
+
+// formatFileSize formats a byte count as a human-readable string.
+func formatFileSize(bytes uint64) string {
+	const (
+		KB = 1024
+		MB = KB * 1024
+		GB = MB * 1024
+	)
+	switch {
+	case bytes >= GB:
+		return fmt.Sprintf("%.1f GB", float64(bytes)/GB)
+	case bytes >= MB:
+		return fmt.Sprintf("%.1f MB", float64(bytes)/MB)
+	case bytes >= KB:
+		return fmt.Sprintf("%.1f KB", float64(bytes)/KB)
+	default:
+		return fmt.Sprintf("%d B", bytes)
+	}
+}
+
+// setNotification displays a temporary notification message.
 func (a *App) setNotification(msg string) {
 	a.notification = msg
 	a.notifyExpiry = time.Now().Add(4 * time.Second)
@@ -517,70 +812,110 @@ func (a App) View() string {
 
 // overlayModal renders a modal dialog over the current view.
 func (a App) overlayModal(base string) string {
-	var content string
-	switch a.modal {
-	case modalAddFriend:
-		content = fmt.Sprintf("%s\n\n%s\n\n%s",
-			panelTitle.Render("Add Friend"),
-			a.modalPrompt,
-			a.modalInput.View(),
-		)
-	case modalFriendRequest:
-		if len(a.pendingReqs) == 0 {
-			break
-		}
-		req := a.pendingReqs[a.activeReqIdx]
-		pkHex := fmt.Sprintf("%x", req.PublicKey)
-		if len(pkHex) > 20 {
-			pkHex = pkHex[:20] + "..."
-		}
-		content = fmt.Sprintf("%s\n\nFrom: %s\nMessage: %s\n\n[Enter] Accept  [R] Reject  [Esc] Dismiss",
-			panelTitle.Render("Friend Request"),
-			pkHex,
-			req.Message,
-		)
-	}
-
+	content := a.renderModalContent()
 	if content == "" {
 		return base
 	}
 
 	dialog := modalStyle.Render(content)
+	return a.overlayDialogOnBase(base, dialog)
+}
+
+// renderModalContent generates the content string for the current modal.
+func (a App) renderModalContent() string {
+	switch a.modal {
+	case modalAddFriend:
+		return a.renderAddFriendModal()
+	case modalFriendRequest:
+		return a.renderFriendRequestModal()
+	case modalFileRequest:
+		return a.renderFileRequestModal()
+	}
+	return ""
+}
+
+// renderAddFriendModal renders the Add Friend dialog content.
+func (a App) renderAddFriendModal() string {
+	return fmt.Sprintf("%s\n\n%s\n\n%s",
+		panelTitle.Render("Add Friend"),
+		a.modalPrompt,
+		a.modalInput.View(),
+	)
+}
+
+// renderFriendRequestModal renders the Friend Request dialog content.
+func (a App) renderFriendRequestModal() string {
+	if len(a.pendingReqs) == 0 {
+		return ""
+	}
+	req := a.pendingReqs[a.activeReqIdx]
+	pkHex := fmt.Sprintf("%x", req.PublicKey)
+	if len(pkHex) > 20 {
+		pkHex = pkHex[:20] + "..."
+	}
+	return fmt.Sprintf("%s\n\nFrom: %s\nMessage: %s\n\n[Enter] Accept  [R] Reject  [Esc] Dismiss",
+		panelTitle.Render("Friend Request"),
+		pkHex,
+		req.Message,
+	)
+}
+
+// renderFileRequestModal renders the Incoming File dialog content.
+func (a App) renderFileRequestModal() string {
+	if len(a.pendingFileReqs) == 0 {
+		return ""
+	}
+	req := a.pendingFileReqs[a.activeFileReqIdx]
+	name := a.friendName(req.FriendID)
+	return fmt.Sprintf("%s\n\nFrom: %s\nFile: %s\nSize: %s\n\n[Enter] Accept  [R] Reject  [Esc] Dismiss",
+		panelTitle.Render("Incoming File"),
+		name,
+		req.Filename,
+		formatFileSize(req.FileSize),
+	)
+}
+
+// overlayDialogOnBase positions and renders a dialog box over the base view.
+func (a App) overlayDialogOnBase(base, dialog string) string {
 	dialogW := lipgloss.Width(dialog)
 	dialogH := lipgloss.Height(dialog)
 
-	x := (a.width - dialogW) / 2
-	y := (a.height - dialogH) / 2
-	if x < 0 {
-		x = 0
-	}
-	if y < 0 {
-		y = 0
-	}
+	x := max(0, (a.width-dialogW)/2)
+	y := max(0, (a.height-dialogH)/2)
 
 	lines := strings.Split(base, "\n")
 	dialogLines := strings.Split(dialog, "\n")
 
 	for i, dl := range dialogLines {
 		row := y + i
-		if row >= len(lines) {
-			lines = append(lines, "")
-		}
-		line := lines[row]
-		// Pad line to at least x characters.
-		for len([]rune(line)) < x {
-			line += " "
-		}
-		// Replace characters at position x with dialog line.
-		runes := []rune(line)
-		dlRunes := []rune(dl)
-		end := x + len(dlRunes)
-		for len(runes) < end {
-			runes = append(runes, ' ')
-		}
-		copy(runes[x:], dlRunes)
-		lines[row] = string(runes)
+		lines = a.insertDialogLine(lines, row, x, dl)
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+// insertDialogLine inserts a dialog line at the specified position in the view.
+func (a App) insertDialogLine(lines []string, row, x int, dialogLine string) []string {
+	// Ensure the row exists.
+	for row >= len(lines) {
+		lines = append(lines, "")
+	}
+
+	line := lines[row]
+	// Pad line to at least x characters.
+	runes := []rune(line)
+	for len(runes) < x {
+		runes = append(runes, ' ')
+	}
+
+	// Replace characters at position x with dialog line.
+	dlRunes := []rune(dialogLine)
+	end := x + len(dlRunes)
+	for len(runes) < end {
+		runes = append(runes, ' ')
+	}
+	copy(runes[x:], dlRunes)
+	lines[row] = string(runes)
+
+	return lines
 }

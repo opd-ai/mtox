@@ -3,6 +3,8 @@ package tui
 import (
 	"testing"
 	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestChatPanel_AddMessage(t *testing.T) {
@@ -160,5 +162,118 @@ func TestChatMessage_Fields(t *testing.T) {
 	}
 	if !msg.isAction {
 		t.Error("chatMessage isAction field mismatch")
+	}
+}
+
+func TestChatPanel_RefreshViewport(t *testing.T) {
+	cp := newChatPanel(80, 24)
+	cp.friendName = "Alice"
+	cp.history = []chatMessage{
+		{ts: time.Now(), senderID: 0, name: "You", body: "Test"},
+	}
+
+	// Should not panic.
+	cp.refreshViewport()
+}
+
+func TestChatPanel_Update_NonFocused(t *testing.T) {
+	cp := newChatPanel(80, 24)
+	cp.focused = false
+
+	// Key events should be ignored when not focused.
+	text, submitted := cp.update(tea.KeyMsg{Type: tea.KeyEnter})
+	if submitted {
+		t.Error("update should not submit when not focused")
+	}
+	if text != "" {
+		t.Errorf("update returned text %q when not focused", text)
+	}
+}
+
+func TestChatPanel_Update_EmptyInput(t *testing.T) {
+	cp := newChatPanel(80, 24)
+	cp.focused = true
+	cp.input.SetValue("")
+
+	// Enter with empty input should not submit.
+	text, submitted := cp.update(tea.KeyMsg{Type: tea.KeyEnter})
+	if submitted {
+		t.Error("update should not submit empty input")
+	}
+	if text != "" {
+		t.Errorf("update returned text %q for empty input", text)
+	}
+}
+
+func TestChatPanel_Update_WithInput(t *testing.T) {
+	cp := newChatPanel(80, 24)
+	cp.focused = true
+	cp.input.SetValue("Hello world")
+
+	// Enter with non-empty input should submit.
+	text, submitted := cp.update(tea.KeyMsg{Type: tea.KeyEnter})
+	if !submitted {
+		t.Error("update should submit non-empty input")
+	}
+	if text != "Hello world" {
+		t.Errorf("update returned text %q, want %q", text, "Hello world")
+	}
+	// Input should be cleared after submission.
+	if cp.input.Value() != "" {
+		t.Error("input should be cleared after submission")
+	}
+}
+
+func TestChatPanel_Update_WhitespaceOnly(t *testing.T) {
+	cp := newChatPanel(80, 24)
+	cp.focused = true
+	cp.input.SetValue("   ")
+
+	// Enter with whitespace-only input should not submit.
+	text, submitted := cp.update(tea.KeyMsg{Type: tea.KeyEnter})
+	if submitted {
+		t.Error("update should not submit whitespace-only input")
+	}
+	if text != "" {
+		t.Errorf("update returned text %q for whitespace-only input", text)
+	}
+}
+
+func TestChatPanel_RenderHistory_ActionMessage(t *testing.T) {
+	cp := newChatPanel(80, 24)
+	cp.friendName = "Alice"
+	cp.history = []chatMessage{
+		{ts: time.Now(), senderID: 1, name: "Alice", body: "waves", isAction: true},
+	}
+
+	content := cp.renderHistory()
+	if content == "" {
+		t.Error("renderHistory with action message returned empty")
+	}
+}
+
+func TestChatPanel_RenderHistory_SelfMessage(t *testing.T) {
+	cp := newChatPanel(80, 24)
+	cp.friendName = "Alice"
+	cp.history = []chatMessage{
+		{ts: time.Now(), senderID: 0, name: "You", body: "Hello from me!"},
+	}
+
+	content := cp.renderHistory()
+	if content == "" {
+		t.Error("renderHistory with self message returned empty")
+	}
+}
+
+func TestChatPanel_RenderHistory_PeerMessage(t *testing.T) {
+	cp := newChatPanel(80, 24)
+	cp.friendName = "Alice"
+	cp.history = []chatMessage{
+		{ts: time.Now(), senderID: 1, name: "Alice", body: "Hello from peer!"},
+	}
+
+	content := cp.renderHistory()
+	if content == "" {
+		t.Error("renderHistory with peer message returned empty")
 	}
 }

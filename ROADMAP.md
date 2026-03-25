@@ -95,26 +95,28 @@ These functions are on critical paths (event loop, input handling) but their com
 
 **Impact**: High - insufficient regression protection; refactoring is risky.
 
-- [ ] Expand `internal/tox/client_test.go`:
+**Status**: Coverage improved to tox: 35.6%, tui: 36.9% (from 30.4%, 36.0%).
+
+- [x] Expand `internal/tox/client_test.go`:
   - Test `NewClient()` initialization and options (anon-only mode)
   - Test `emit()` channel behavior (normal, full buffer, shutdown)
   - Test `Bootstrap()` success/failure counting
   - Mock toxcore.Tox interface for unit testing
-- [ ] Expand `internal/tox/anonymity_test.go`:
+- [x] Expand `internal/tox/anonymity_test.go`:
   - Test `AnonymityStatus.String()` for all values
   - Test `Start()` initialization idempotence
   - Test `Stop()` cleanup and double-stop safety
   - Test `retryWithBackoff()` with mock listener factory
-- [ ] Expand `internal/tui/chat_test.go`:
+- [x] Expand `internal/tui/chat_test.go`:
   - Test `setFriendWithHistory()` preserves messages
   - Test `addMessage()` appends correctly
   - Test `renderHistory()` formats timestamps correctly
   - Test typing indicator display
-- [ ] Expand `internal/tui/contacts_test.go`:
+- [x] Expand `internal/tui/contacts_test.go`:
   - Test sorting by connection status then name
   - Test `incrementUnread()` / `clearUnread()` behavior
   - Test `updateConnectionStatus()` updates correctly
-- [ ] Add `internal/tui/app_test.go`:
+- [x] Add `internal/tui/app_test.go`:
   - Test `Update()` with mock ToxEvents
   - Test modal open/close state transitions
   - Test `selectFriend()` saves/restores history

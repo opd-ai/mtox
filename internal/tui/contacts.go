@@ -28,6 +28,7 @@ type contactsPanel struct {
 	height   int
 }
 
+// newContactsPanel creates a new contacts panel with the given dimensions.
 func newContactsPanel(width, height int) contactsPanel {
 	return contactsPanel{
 		width:  width,
@@ -35,6 +36,7 @@ func newContactsPanel(width, height int) contactsPanel {
 	}
 }
 
+// setContacts updates the contact list from the tox friend list.
 func (p *contactsPanel) setContacts(friends map[uint32]*toxcore.Friend) {
 	// Preserve unread counts across updates.
 	unread := make(map[uint32]int, len(p.contacts))
@@ -75,6 +77,7 @@ func sortContacts(cs []contactEntry) {
 	}
 }
 
+// incrementUnread increases the unread count for a contact.
 func (p *contactsPanel) incrementUnread(friendID uint32) {
 	for i := range p.contacts {
 		if p.contacts[i].FriendID == friendID {
@@ -84,6 +87,7 @@ func (p *contactsPanel) incrementUnread(friendID uint32) {
 	}
 }
 
+// clearUnread resets the unread count for a contact to zero.
 func (p *contactsPanel) clearUnread(friendID uint32) {
 	for i := range p.contacts {
 		if p.contacts[i].FriendID == friendID {
@@ -93,6 +97,7 @@ func (p *contactsPanel) clearUnread(friendID uint32) {
 	}
 }
 
+// updateConnectionStatus updates the connection status for a contact.
 func (p *contactsPanel) updateConnectionStatus(friendID uint32, status toxcore.ConnectionStatus) {
 	for i := range p.contacts {
 		if p.contacts[i].FriendID == friendID {
@@ -102,6 +107,7 @@ func (p *contactsPanel) updateConnectionStatus(friendID uint32, status toxcore.C
 	}
 }
 
+// updateName updates the display name for a contact.
 func (p *contactsPanel) updateName(friendID uint32, name string) {
 	for i := range p.contacts {
 		if p.contacts[i].FriendID == friendID {
@@ -123,34 +129,57 @@ func (p *contactsPanel) selectedFriendID() (uint32, bool) {
 func (p *contactsPanel) update(msg tea.Msg) (bool, uint32) {
 	switch m := msg.(type) {
 	case tea.KeyMsg:
-		if !p.focused {
-			return false, 0
-		}
-		switch m.String() {
-		case "up", "k":
-			if p.selected > 0 {
-				p.selected--
-			}
-		case "down", "j":
-			if p.selected < len(p.contacts)-1 {
-				p.selected++
-			}
-		case "enter":
-			if id, ok := p.selectedFriendID(); ok {
-				return true, id
-			}
-		}
+		return p.handleKeyInput(m)
 	case tea.MouseMsg:
-		if m.Action == tea.MouseActionPress && m.Button == tea.MouseButtonLeft {
-			// Adjust for border (1) + title (2) = row offset 3.
-			row := m.Y - 3
-			if row >= 0 && row < len(p.contacts) {
-				p.selected = row
-				return true, p.contacts[row].FriendID
-			}
+		return p.handleMouseInput(m)
+	}
+	return false, 0
+}
+
+// handleKeyInput processes keyboard navigation in the contacts panel.
+func (p *contactsPanel) handleKeyInput(m tea.KeyMsg) (bool, uint32) {
+	if !p.focused {
+		return false, 0
+	}
+	switch m.String() {
+	case "up", "k":
+		p.moveSelectionUp()
+	case "down", "j":
+		p.moveSelectionDown()
+	case "enter":
+		if id, ok := p.selectedFriendID(); ok {
+			return true, id
 		}
 	}
 	return false, 0
+}
+
+// handleMouseInput processes mouse clicks in the contacts panel.
+func (p *contactsPanel) handleMouseInput(m tea.MouseMsg) (bool, uint32) {
+	if m.Action != tea.MouseActionPress || m.Button != tea.MouseButtonLeft {
+		return false, 0
+	}
+	// Adjust for border (1) + title (2) = row offset 3.
+	row := m.Y - 3
+	if row >= 0 && row < len(p.contacts) {
+		p.selected = row
+		return true, p.contacts[row].FriendID
+	}
+	return false, 0
+}
+
+// moveSelectionUp moves the selection cursor up one position.
+func (p *contactsPanel) moveSelectionUp() {
+	if p.selected > 0 {
+		p.selected--
+	}
+}
+
+// moveSelectionDown moves the selection cursor down one position.
+func (p *contactsPanel) moveSelectionDown() {
+	if p.selected < len(p.contacts)-1 {
+		p.selected++
+	}
 }
 
 // view renders the contacts panel.
@@ -192,6 +221,7 @@ func (p contactsPanel) view() string {
 	return style.Width(innerWidth).Height(p.height - 2).Render(content)
 }
 
+// renderContact formats a single contact entry for display.
 func (p contactsPanel) renderContact(c contactEntry, selected bool) string {
 	indicator := statusIndicator(c.ConnectionStatus, c.FriendStatus)
 	name := c.Name
@@ -234,6 +264,7 @@ func statusIndicator(connStatus toxcore.ConnectionStatus, friendStatus toxcore.F
 	}
 }
 
+// max returns the larger of two integers.
 func max(a, b int) int {
 	if a > b {
 		return a

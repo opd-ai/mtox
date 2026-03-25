@@ -21,19 +21,18 @@ type chatMessage struct {
 
 // chatPanel manages the chat viewport and input box.
 type chatPanel struct {
-	friendID    uint32
-	friendName  string
-	history     []chatMessage
-	viewport    viewport.Model
-	input       textinput.Model
-	isTyping    bool // remote peer is typing
-	focused     bool
-	width       int
-	height      int
-	selfName    string
-	initialized bool
+	friendID   uint32
+	friendName string
+	history    []chatMessage
+	viewport   viewport.Model
+	input      textinput.Model
+	isTyping   bool // remote peer is typing
+	focused    bool
+	width      int
+	height     int
 }
 
+// newChatPanel creates a new chat panel with the given dimensions.
 func newChatPanel(width, height int) chatPanel {
 	ti := textinput.New()
 	ti.Placeholder = "type a message..."
@@ -49,6 +48,9 @@ func newChatPanel(width, height int) chatPanel {
 	}
 }
 
+// setFriend switches to a new friend, clearing the chat history.
+// Note: This method is primarily used in tests. Production code uses
+// setFriendWithHistory to preserve chat history across friend switches.
 func (c *chatPanel) setFriend(friendID uint32, name string) {
 	if c.friendID == friendID {
 		return
@@ -68,16 +70,19 @@ func (c *chatPanel) setFriendWithHistory(friendID uint32, name string, history [
 	c.viewport.GotoBottom()
 }
 
+// addMessage appends a message to the chat history and scrolls to bottom.
 func (c *chatPanel) addMessage(msg chatMessage) {
 	c.history = append(c.history, msg)
 	c.refreshViewport()
 	c.viewport.GotoBottom()
 }
 
+// refreshViewport updates the viewport content from the history.
 func (c *chatPanel) refreshViewport() {
 	c.viewport.SetContent(c.renderHistory())
 }
 
+// renderHistory formats the chat history as a string for display.
 func (c *chatPanel) renderHistory() string {
 	if len(c.history) == 0 {
 		return messagePeer.Render("(no messages yet)")
@@ -180,6 +185,7 @@ func (c *chatPanel) focus() {
 	c.input.Focus()
 }
 
+// blur removes focus from the chat panel.
 func (c *chatPanel) blur() {
 	c.focused = false
 	c.input.Blur()

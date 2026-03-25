@@ -333,10 +333,8 @@ func (m *AnonymityManager) retryWithBackoff(initialBackoff time.Duration, attemp
 	maxBackoff := 5 * time.Minute
 
 	for {
-		select {
-		case <-m.done:
+		if m.isStopped() {
 			return nil, fmt.Errorf("cancelled")
-		default:
 		}
 
 		listener, err := attempt()
@@ -344,19 +342,42 @@ func (m *AnonymityManager) retryWithBackoff(initialBackoff time.Duration, attemp
 			return listener, nil
 		}
 
-		// Wait before retrying with exponential backoff
-		select {
-		case <-m.done:
+		if cancelled := m.waitWithBackoff(backoff); cancelled {
 			return nil, fmt.Errorf("cancelled")
-		case <-time.After(backoff):
 		}
 
-		// Exponential backoff (1.5x) using integer arithmetic, capped at maxBackoff
-		backoff = backoff + (backoff / 2)
-		if backoff > maxBackoff {
-			backoff = maxBackoff
-		}
+		backoff = m.calculateNextBackoff(backoff, maxBackoff)
 	}
+}
+
+// isStopped checks if the manager has been stopped.
+func (m *AnonymityManager) isStopped() bool {
+	select {
+	case <-m.done:
+		return true
+	default:
+		return false
+	}
+}
+
+// waitWithBackoff waits for the backoff duration or until stopped.
+// Returns true if cancelled.
+func (m *AnonymityManager) waitWithBackoff(backoff time.Duration) bool {
+	select {
+	case <-m.done:
+		return true
+	case <-time.After(backoff):
+		return false
+	}
+}
+
+// calculateNextBackoff computes the next backoff duration using 1.5x exponential growth.
+func (m *AnonymityManager) calculateNextBackoff(current, max time.Duration) time.Duration {
+	next := current + (current / 2)
+	if next > max {
+		return max
+	}
+	return next
 }
 
 // extractHost extracts just the host portion from an address, removing any port.

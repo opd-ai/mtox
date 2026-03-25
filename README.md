@@ -1,5 +1,8 @@
 # mtox
 
+[![CI](https://github.com/opd-ai/mtox/actions/workflows/ci.yml/badge.svg)](https://github.com/opd-ai/mtox/actions/workflows/ci.yml)
+[![Release](https://github.com/opd-ai/mtox/actions/workflows/release.yml/badge.svg)](https://github.com/opd-ai/mtox/actions/workflows/release.yml)
+
 **mtox** is a full-featured Tox Messenger terminal user interface (TUI) written in Go.
 
 It uses [`github.com/opd-ai/toxcore`](https://github.com/opd-ai/toxcore) as the networking backend and [`github.com/charmbracelet/bubbletea`](https://github.com/charmbracelet/bubbletea) as the TUI framework.
@@ -90,6 +93,19 @@ MTOX_ANON_ONLY=1 ./mtox
 - ❌ Disables local discovery
 
 **Note:** For complete anonymity guarantees, consider running mtox inside a network namespace or VM that blocks all non-Tor/I2P traffic.
+
+## Downloads
+
+Pre-built binaries are available from the [GitHub Releases](https://github.com/opd-ai/mtox/releases) page:
+
+| Platform | Architecture | Download |
+|----------|--------------|----------|
+| Linux    | amd64        | [mtox-linux-amd64](https://github.com/opd-ai/mtox/releases/latest/download/mtox-linux-amd64) |
+| Linux    | arm64        | [mtox-linux-arm64](https://github.com/opd-ai/mtox/releases/latest/download/mtox-linux-arm64) |
+| macOS    | amd64        | [mtox-darwin-amd64](https://github.com/opd-ai/mtox/releases/latest/download/mtox-darwin-amd64) |
+| macOS    | arm64        | [mtox-darwin-arm64](https://github.com/opd-ai/mtox/releases/latest/download/mtox-darwin-arm64) |
+| Windows  | amd64        | [mtox-windows-amd64.exe](https://github.com/opd-ai/mtox/releases/latest/download/mtox-windows-amd64.exe) |
+| Windows  | arm64        | [mtox-windows-arm64.exe](https://github.com/opd-ai/mtox/releases/latest/download/mtox-windows-arm64.exe) |
 
 ## Build
 

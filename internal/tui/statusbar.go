@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	toxclient "github.com/opd-ai/mtox/internal/tox"
+	"github.com/opd-ai/mtox/internal/version"
 	"github.com/opd-ai/toxcore"
 )
 
@@ -18,15 +19,17 @@ type statusBar struct {
 	i2pStatus        toxclient.AnonymityStatus
 }
 
+// newStatusBar creates a new status bar with the given width.
 func newStatusBar(width int) statusBar {
 	return statusBar{width: width}
 }
 
+// view renders the status bar.
 func (s statusBar) view() string {
 	connStr := s.connectionString()
 	anonStr := s.anonymityString()
 	addrStr := s.addressString()
-	versionStr := "mtox v0.1"
+	versionStr := "mtox v" + version.Version
 
 	left := statusBarStyle.Render(connStr)
 	right := statusBarStyle.Render(versionStr)
@@ -64,6 +67,7 @@ func (s statusBar) view() string {
 	return bar
 }
 
+// connectionString returns a formatted connection status string.
 func (s statusBar) connectionString() string {
 	switch s.connectionStatus {
 	case toxcore.ConnectionUDP:
@@ -75,6 +79,7 @@ func (s statusBar) connectionString() string {
 	}
 }
 
+// anonymityString returns Tor/I2P status indicators.
 func (s statusBar) anonymityString() string {
 	var parts []string
 
@@ -100,6 +105,7 @@ func (s statusBar) anonymityString() string {
 	return " " + strings.Join(parts, " ") + " "
 }
 
+// addressString returns a formatted Tox address string.
 func (s statusBar) addressString() string {
 	if s.selfAddress == "" {
 		return "My ID: (loading...)"

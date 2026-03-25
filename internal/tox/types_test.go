@@ -1,6 +1,10 @@
 package tox
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/opd-ai/toxcore"
+)
 
 func TestAnonymityStatus_String(t *testing.T) {
 	tests := []struct {
@@ -35,6 +39,12 @@ func TestToxEvents_ImplementInterface(t *testing.T) {
 		SelfConnectionStatusEvent{},
 		TickEvent{},
 		AnonymityStatusEvent{},
+		FileRecvRequestEvent{},
+		FileRecvChunkEvent{},
+		FileChunkRequestEvent{},
+		FileSendCompleteEvent{},
+		FileRecvCompleteEvent{},
+		FileTransferErrorEvent{},
 	}
 
 	for _, e := range events {
@@ -42,8 +52,8 @@ func TestToxEvents_ImplementInterface(t *testing.T) {
 		e.toxEvent()
 	}
 
-	if len(events) != 9 {
-		t.Errorf("Expected 9 event types, got %d", len(events))
+	if len(events) != 15 {
+		t.Errorf("Expected 15 event types, got %d", len(events))
 	}
 }
 
@@ -53,5 +63,122 @@ func TestNetworkConstants(t *testing.T) {
 	}
 	if NetworkI2P != "i2p" {
 		t.Errorf("NetworkI2P = %q, want %q", NetworkI2P, "i2p")
+	}
+}
+
+func TestFriendRequestEvent_Fields(t *testing.T) {
+	pubKey := [32]byte{1, 2, 3, 4, 5}
+	e := FriendRequestEvent{
+		PublicKey: pubKey,
+		Message:   "Hello, let's chat!",
+	}
+
+	if e.PublicKey != pubKey {
+		t.Error("FriendRequestEvent.PublicKey mismatch")
+	}
+	if e.Message != "Hello, let's chat!" {
+		t.Errorf("FriendRequestEvent.Message = %q, want %q", e.Message, "Hello, let's chat!")
+	}
+}
+
+func TestFriendMessageEvent_Fields(t *testing.T) {
+	e := FriendMessageEvent{
+		FriendID: 42,
+		Message:  "Hi there!",
+	}
+
+	if e.FriendID != 42 {
+		t.Errorf("FriendMessageEvent.FriendID = %d, want 42", e.FriendID)
+	}
+	if e.Message != "Hi there!" {
+		t.Errorf("FriendMessageEvent.Message = %q, want %q", e.Message, "Hi there!")
+	}
+}
+
+func TestFriendConnectionStatusEvent_Fields(t *testing.T) {
+	e := FriendConnectionStatusEvent{
+		FriendID: 5,
+		Status:   toxcore.ConnectionUDP,
+	}
+
+	if e.FriendID != 5 {
+		t.Errorf("FriendConnectionStatusEvent.FriendID = %d, want 5", e.FriendID)
+	}
+	if e.Status != toxcore.ConnectionUDP {
+		t.Errorf("FriendConnectionStatusEvent.Status = %v, want ConnectionUDP", e.Status)
+	}
+}
+
+func TestFriendNameEvent_Fields(t *testing.T) {
+	e := FriendNameEvent{
+		FriendID: 3,
+		Name:     "Alice",
+	}
+
+	if e.FriendID != 3 {
+		t.Errorf("FriendNameEvent.FriendID = %d, want 3", e.FriendID)
+	}
+	if e.Name != "Alice" {
+		t.Errorf("FriendNameEvent.Name = %q, want %q", e.Name, "Alice")
+	}
+}
+
+func TestFriendStatusMessageEvent_Fields(t *testing.T) {
+	e := FriendStatusMessageEvent{
+		FriendID:      7,
+		StatusMessage: "Away for lunch",
+	}
+
+	if e.FriendID != 7 {
+		t.Errorf("FriendStatusMessageEvent.FriendID = %d, want 7", e.FriendID)
+	}
+	if e.StatusMessage != "Away for lunch" {
+		t.Errorf("FriendStatusMessageEvent.StatusMessage = %q, want %q", e.StatusMessage, "Away for lunch")
+	}
+}
+
+func TestFriendTypingEvent_Fields(t *testing.T) {
+	e := FriendTypingEvent{
+		FriendID: 10,
+		IsTyping: true,
+	}
+
+	if e.FriendID != 10 {
+		t.Errorf("FriendTypingEvent.FriendID = %d, want 10", e.FriendID)
+	}
+	if !e.IsTyping {
+		t.Error("FriendTypingEvent.IsTyping = false, want true")
+	}
+}
+
+func TestSelfConnectionStatusEvent_Fields(t *testing.T) {
+	e := SelfConnectionStatusEvent{
+		Status: toxcore.ConnectionTCP,
+	}
+
+	if e.Status != toxcore.ConnectionTCP {
+		t.Errorf("SelfConnectionStatusEvent.Status = %v, want ConnectionTCP", e.Status)
+	}
+}
+
+func TestAnonymityStatusEvent_Fields(t *testing.T) {
+	e := AnonymityStatusEvent{
+		Network: NetworkTor,
+		Status:  AnonymityAvailable,
+		Address: "abc123.onion",
+		Error:   "",
+	}
+
+	if e.Network != NetworkTor {
+		t.Errorf("AnonymityStatusEvent.Network = %q, want %q", e.Network, NetworkTor)
+	}
+	if e.Status != AnonymityAvailable {
+		t.Errorf("AnonymityStatusEvent.Status = %v, want AnonymityAvailable", e.Status)
+	}
+	if e.Address != "abc123.onion" {
+		t.Errorf("AnonymityStatusEvent.Address = %q, want %q", e.Address, "abc123.onion")
+	}
+	if e.Error != "" {
+		t.Errorf("AnonymityStatusEvent.Error = %q, want empty", e.Error)
 	}
 }
