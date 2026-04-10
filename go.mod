@@ -6,7 +6,7 @@ require (
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/opd-ai/toxcore v0.0.0-20260325010001-14d11ed18e0b
+	github.com/opd-ai/toxcore v1.4.0-qtox-preview.0.20260409024821-8e7f0208c6bb
 )
 
 require (
@@ -34,7 +34,7 @@ require (
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/opd-ai/magnum v0.0.0-20260324160013-b37fddfcd246 // indirect
-	github.com/opd-ai/vp8 v0.0.0-20260324160009-fb5eac94efed // indirect
+	github.com/opd-ai/vp8 v0.0.0-20260404155915-65198b6115cb // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtp v1.10.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
