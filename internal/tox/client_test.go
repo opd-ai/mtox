@@ -544,7 +544,7 @@ func TestIncomingFile_Progress(t *testing.T) {
 func TestBootstrapNodes_PortRange(t *testing.T) {
 	for i, node := range bootstrapNodes {
 		// Ports should be in valid range
-		if node.port < 1 || node.port > 65535 {
+		if node.port < 1 {
 			t.Errorf("bootstrapNodes[%d].port = %d, invalid port", i, node.port)
 		}
 		// Common Tox port is 33445
