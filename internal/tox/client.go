@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/opd-ai/toxcore"
+	"github.com/opd-ai/toxcore/bootstrap/nodes"
 )
 
 const (
@@ -22,17 +23,9 @@ const (
 	eventBufSize = 256
 )
 
-// bootstrapNodes is a list of public Tox bootstrap nodes.
-var bootstrapNodes = []struct {
-	host   string
-	port   uint16
-	pubkey string
-}{
-	{"node.tox.biribiri.org", 33445, "F404ABAA1C99A9D37D61AB54898F56793E1DEF8BD46B1038B9D822E8460FAB67"},
-	{"tox.abilinski.com", 33445, "10C00EB250C3233E343E2AEBA07D4A3D705624D19C91AEFEFD82553EFF0F2A7C"},
-	{"tox.novg.net", 33445, "D527E5847F8330D628DAB1814F0A422F6DC9D0A300E6C357634EE2DA88C35463"},
-	{"205.185.116.116", 33445, "D527D7C17124CC78D234F235537F9B43B6A98CFA667769420490005D17081023"},
-}
+// bootstrapNodes returns the canonical list of public Tox bootstrap nodes
+// from the toxcore package.
+var bootstrapNodes = nodes.DefaultNodes
 
 // Client wraps a toxcore.Tox instance and exposes events via a channel.
 type Client struct {
@@ -278,7 +271,7 @@ func (c *Client) waitForNextIteration(timer *time.Timer) bool {
 func (c *Client) Bootstrap() {
 	var successCount int
 	for _, node := range bootstrapNodes {
-		if err := c.tox.Bootstrap(node.host, node.port, node.pubkey); err == nil {
+		if err := c.tox.Bootstrap(node.Address, node.Port, node.PublicKey); err == nil {
 			successCount++
 		}
 	}

@@ -62,12 +62,8 @@ github.com/muesli/termenv v0.16.0 h1:S5AlUN9dENB57rsbnkPyfdGuWIlkmzJjbFf0Tf5FWUc
 github.com/muesli/termenv v0.16.0/go.mod h1:ZRfOIKPFDYQoDFF4Olj7/QJbW60Ol/kL1pU3VfY/Cnk=
 github.com/opd-ai/magnum v0.0.0-20260324160013-b37fddfcd246 h1:3RBHWkrBSDnP4XNXBHdUVpmVdFAlD/zxYyOGWVBQsGo=
 github.com/opd-ai/magnum v0.0.0-20260324160013-b37fddfcd246/go.mod h1:5lEMSKfD77yE/C76GJEzaEcCIIEDBvPmZW2avAzhuZ8=
-github.com/opd-ai/toxcore v0.0.0-20260325010001-14d11ed18e0b h1:1a69GKa7ZHETKdHeTz6QlcjEDD7lEwylEhT9YXKgn1Y=
-github.com/opd-ai/toxcore v0.0.0-20260325010001-14d11ed18e0b/go.mod h1:WRw4QZlfAkYIrnpkHog08BlwVhBUQbZnmm2SkvfaAaw=
-github.com/opd-ai/toxcore v1.4.0-qtox-preview.0.20260409024821-8e7f0208c6bb h1:F7+ff/q8trJM+HpUuqL2hU9eDVpTQN7LGBdsHW6sP58=
-github.com/opd-ai/toxcore v1.4.0-qtox-preview.0.20260409024821-8e7f0208c6bb/go.mod h1:N++qiAJ5xOGaL6ycVV95Rqt3iSB+VGWkqqcywPN/jJk=
-github.com/opd-ai/vp8 v0.0.0-20260324160009-fb5eac94efed h1:d4pRsgOgpGu8uGq+5FSc7tGTJj4BCW1jy7groACFIQY=
-github.com/opd-ai/vp8 v0.0.0-20260324160009-fb5eac94efed/go.mod h1:g7CsmFyTjg4mPNOJsSn0Mfmc8ZEv3OBhIrLNKe2nwOc=
+github.com/opd-ai/toxcore v1.4.0-qtox-preview.0.20260412113747-9989c3575ce7 h1:CgTY5bPNv6c41KEAq+t/S+N9lwoem246/Pj1pQqxJ00=
+github.com/opd-ai/toxcore v1.4.0-qtox-preview.0.20260412113747-9989c3575ce7/go.mod h1:N++qiAJ5xOGaL6ycVV95Rqt3iSB+VGWkqqcywPN/jJk=
 github.com/opd-ai/vp8 v0.0.0-20260404155915-65198b6115cb h1:eHVvrPBfKiCiWQGq2h3umrp7wUCRi1yvECUKa6P1E7I=
 github.com/opd-ai/vp8 v0.0.0-20260404155915-65198b6115cb/go.mod h1:HZ0hbgXC96+GvJ61xM1lma7OZN96VyBJXaH/F1SUqwo=
 github.com/pion/randutil v0.1.0 h1:CFG1UdESneORglEsnimhUjf33Rwjubwj6xfiOXBa3mA=
