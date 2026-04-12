@@ -6,7 +6,7 @@ require (
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/opd-ai/toxcore v1.4.0-qtox-preview.0.20260409024821-8e7f0208c6bb
+	github.com/opd-ai/toxcore v1.4.0-qtox-preview.0.20260412113747-9989c3575ce7
 )
 
 require (

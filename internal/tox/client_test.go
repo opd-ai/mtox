@@ -320,20 +320,20 @@ func TestBootstrapNodes_Valid(t *testing.T) {
 	}
 
 	for i, node := range bootstrapNodes {
-		if node.host == "" {
-			t.Errorf("bootstrapNodes[%d].host is empty", i)
+		if node.Address == "" {
+			t.Errorf("bootstrapNodes[%d].Address is empty", i)
 		}
-		if node.port == 0 {
-			t.Errorf("bootstrapNodes[%d].port is 0", i)
+		if node.Port == 0 {
+			t.Errorf("bootstrapNodes[%d].Port is 0", i)
 		}
 		// Public keys should be 64 hex characters (32 bytes).
-		if len(node.pubkey) != 64 {
-			t.Errorf("bootstrapNodes[%d].pubkey length = %d, want 64", i, len(node.pubkey))
+		if len(node.PublicKey) != 64 {
+			t.Errorf("bootstrapNodes[%d].PublicKey length = %d, want 64", i, len(node.PublicKey))
 		}
 		// Verify it's valid hex.
-		for j, c := range node.pubkey {
+		for j, c := range node.PublicKey {
 			if !((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')) {
-				t.Errorf("bootstrapNodes[%d].pubkey[%d] = %c, not valid hex", i, j, c)
+				t.Errorf("bootstrapNodes[%d].PublicKey[%d] = %c, not valid hex", i, j, c)
 			}
 		}
 	}
@@ -544,12 +544,8 @@ func TestIncomingFile_Progress(t *testing.T) {
 func TestBootstrapNodes_PortRange(t *testing.T) {
 	for i, node := range bootstrapNodes {
 		// Ports should be in valid range
-		if node.port < 1 {
-			t.Errorf("bootstrapNodes[%d].port = %d, invalid port", i, node.port)
-		}
-		// Common Tox port is 33445
-		if node.port != 33445 {
-			t.Logf("bootstrapNodes[%d] uses non-standard port %d", i, node.port)
+		if node.Port < 1 {
+			t.Errorf("bootstrapNodes[%d].Port = %d, invalid port", i, node.Port)
 		}
 	}
 }

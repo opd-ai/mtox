@@ -273,14 +273,14 @@ func TestBootstrapNodes(t *testing.T) {
 	}
 
 	for i, node := range bootstrapNodes {
-		if node.host == "" {
-			t.Errorf("bootstrapNodes[%d].host is empty", i)
+		if node.Address == "" {
+			t.Errorf("bootstrapNodes[%d].Address is empty", i)
 		}
-		if node.port == 0 {
-			t.Errorf("bootstrapNodes[%d].port is 0", i)
+		if node.Port == 0 {
+			t.Errorf("bootstrapNodes[%d].Port is 0", i)
 		}
-		if len(node.pubkey) != 64 {
-			t.Errorf("bootstrapNodes[%d].pubkey length = %d, want 64", i, len(node.pubkey))
+		if len(node.PublicKey) != 64 {
+			t.Errorf("bootstrapNodes[%d].PublicKey length = %d, want 64", i, len(node.PublicKey))
 		}
 	}
 }
