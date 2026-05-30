@@ -64,8 +64,12 @@ github.com/opd-ai/magnum v0.0.0-20260324160013-b37fddfcd246 h1:3RBHWkrBSDnP4XNXB
 github.com/opd-ai/magnum v0.0.0-20260324160013-b37fddfcd246/go.mod h1:5lEMSKfD77yE/C76GJEzaEcCIIEDBvPmZW2avAzhuZ8=
 github.com/opd-ai/toxcore v1.4.0-qtox-preview.0.20260412113747-9989c3575ce7 h1:CgTY5bPNv6c41KEAq+t/S+N9lwoem246/Pj1pQqxJ00=
 github.com/opd-ai/toxcore v1.4.0-qtox-preview.0.20260412113747-9989c3575ce7/go.mod h1:N++qiAJ5xOGaL6ycVV95Rqt3iSB+VGWkqqcywPN/jJk=
+github.com/opd-ai/toxcore v1.4.0-qtox-preview.0.20260529222831-2ca1077585a6 h1:OiCaxhXSj+3a4gVSXf5owdOqjzqeQuaQsAt45nuqTAE=
+github.com/opd-ai/toxcore v1.4.0-qtox-preview.0.20260529222831-2ca1077585a6/go.mod h1:fFaJSTb5wYrM12Z3CNu1xsuVPuQQRc6ib3jUKr5WPOM=
 github.com/opd-ai/vp8 v0.0.0-20260404155915-65198b6115cb h1:eHVvrPBfKiCiWQGq2h3umrp7wUCRi1yvECUKa6P1E7I=
 github.com/opd-ai/vp8 v0.0.0-20260404155915-65198b6115cb/go.mod h1:HZ0hbgXC96+GvJ61xM1lma7OZN96VyBJXaH/F1SUqwo=
+github.com/opd-ai/vp8 v0.0.0-20260407023446-a01cf06c95d4 h1:6bickqIX790q8UqqBpGl+hQkiCdX5/ZdAQygAl9dMJQ=
+github.com/opd-ai/vp8 v0.0.0-20260407023446-a01cf06c95d4/go.mod h1:HZ0hbgXC96+GvJ61xM1lma7OZN96VyBJXaH/F1SUqwo=
 github.com/pion/randutil v0.1.0 h1:CFG1UdESneORglEsnimhUjf33Rwjubwj6xfiOXBa3mA=
 github.com/pion/randutil v0.1.0/go.mod h1:XcJrSMMbbMRhASFVOlj/5hQial/Y8oH/HVo7TBZq+j8=
 github.com/pion/rtp v1.10.1 h1:xP1prZcCTUuhO2c83XtxyOHJteISg6o8iPsE2acaMtA=
@@ -81,6 +85,8 @@ github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
+github.com/xlab/libvpx-go v0.0.0-20220203233824-652b2616315c h1:dYh8PXMQ2Ibn0EpOHJEUyaWlcZ1egvB3elvzPzC7JZ8=
+github.com/xlab/libvpx-go v0.0.0-20220203233824-652b2616315c/go.mod h1:aDpRjomFsJw5z7oxScCKeB5NNGqibqdOgmpnOaEVMQs=
 github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e h1:JVG44RsyaB9T2KIHavMF/ppJZNG9ZpyihvCd0w101no=
 github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e/go.mod h1:RbqR21r5mrJuqunuUZ/Dhy/avygyECGrLceyNeo4LiM=
 golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2/go.mod h1:T9bdIzuCu7OtxOm1hfPfRQxPLYneinmdGuTeoZ9dtd4=
@@ -95,6 +101,8 @@ golang.org/x/net v0.0.0-20210226172049-e18ecbb05110/go.mod h1:m0MpNAwzfU5UDzcl9v
 golang.org/x/net v0.0.0-20210525063256-abc453219eb5/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
 golang.org/x/net v0.52.0 h1:He/TN1l0e4mmR3QqHMT2Xab3Aj3L9qjbhRm78/6jrW0=
 golang.org/x/net v0.52.0/go.mod h1:R1MAz7uMZxVMualyPXb+VaqGSa3LIaUqk0eEt3w36Sw=
+golang.org/x/sync v0.20.0 h1:e0PTpb7pjO8GAtTs2dQ6jYa5BWYlMuX047Dco/pItO4=
+golang.org/x/sync v0.20.0/go.mod h1:9xrNwdLfx4jkKbNva9FpL6vEN7evnE43NNNJQ2LF3+0=
 golang.org/x/sys v0.0.0-20201119102817-f84b799fce68/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20210423082822-04245dca01da/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20210809222454-d867a43fc93e/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
