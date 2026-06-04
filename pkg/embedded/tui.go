@@ -20,7 +20,7 @@ type TUI struct {
 func New(programOptions ...tea.ProgramOption) (*TUI, error) {
 	client, err := toxclient.NewClient()
 	if err != nil {
-		return nil, fmt.Errorf("initialising tox client: %w", err)
+		return nil, fmt.Errorf("initializing tox client: %w", err)
 	}
 	return newWithClient(client, programOptions...), nil
 }
@@ -42,18 +42,20 @@ func newWithClient(client *toxclient.Client, programOptions ...tea.ProgramOption
 // Run starts the tox client and runs the TUI program.
 func (t *TUI) Run() error {
 	if t == nil || t.client == nil || t.program == nil {
-		return fmt.Errorf("embedded tui is not initialised")
+		return fmt.Errorf("embedded tui is not initialized")
 	}
 
 	t.client.Start()
+	defer t.client.Stop()
+
 	if _, err := t.program.Run(); err != nil {
-		t.client.Stop()
 		return fmt.Errorf("running mtox tui: %w", err)
 	}
 	return nil
 }
 
-// Program returns the underlying Bubble Tea program.
+// Program returns the underlying Bubble Tea program for advanced integrations
+// such as sending custom messages or using Bubble Tea program APIs directly.
 func (t *TUI) Program() *tea.Program {
 	if t == nil {
 		return nil
@@ -62,6 +64,7 @@ func (t *TUI) Program() *tea.Program {
 }
 
 // Stop stops the underlying tox client.
+// It is safe to call multiple times.
 func (t *TUI) Stop() {
 	if t == nil || t.client == nil {
 		return
