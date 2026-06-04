@@ -79,7 +79,7 @@ func main() {
 
 	app, err := embedded.New()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error initialising Tox: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error initializing mtox: %v\n", err)
 		os.Exit(1)
 	}
 
