@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
-	toxclient "github.com/opd-ai/mtox/internal/tox"
-	"github.com/opd-ai/mtox/internal/tui"
 	"github.com/opd-ai/mtox/internal/version"
+	"github.com/opd-ai/mtox/pkg/embedded"
 )
 
 // cliFlags holds parsed command-line flags.
@@ -79,20 +77,14 @@ func main() {
 
 	applyFlags(flags)
 
-	client, err := toxclient.NewClient()
+	app, err := embedded.New()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error initialising Tox: %v\n", err)
 		os.Exit(1)
 	}
 
-	client.Start()
-
-	app := tui.New(client)
-	p := tea.NewProgram(app, tea.WithAltScreen(), tea.WithMouseCellMotion())
-
-	if _, err := p.Run(); err != nil {
+	if err := app.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error running mtox: %v\n", err)
-		client.Stop()
 		os.Exit(1)
 	}
 }
