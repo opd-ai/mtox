@@ -113,6 +113,12 @@ Pre-built binaries are available from the [GitHub Releases](https://github.com/o
 go build ./cmd/mtox
 ```
 
+## Embedding
+
+`mtox` now exposes an embeddable runtime at `github.com/opd-ai/mtox/pkg/embedded`.
+
+Host applications can construct and run the reusable TUI via `embedded.New(...)` and `(*embedded.TUI).Run()`.
+
 ## Run
 
 ```bash
