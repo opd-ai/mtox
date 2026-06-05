@@ -1,7 +1,10 @@
 // Package tox provides types for bridging toxcore callbacks to bubbletea messages.
 package tox
 
-import "github.com/opd-ai/toxcore"
+import (
+	"github.com/opd-ai/mtox/pkg/bridge"
+	"github.com/opd-ai/toxcore"
+)
 
 // ToxEvent is the interface implemented by all events emitted by the tox client.
 type ToxEvent interface {
@@ -149,9 +152,9 @@ func (FileTransferErrorEvent) toxEvent() {}
 // SOCKSStatusEvent is fired when the SOCKS proxy status changes.
 // It indicates availability, connection status, or errors for the local SOCKS5 proxy.
 type SOCKSStatusEvent struct {
-	Status int    // bridge.Status value (0=unavailable, 1=connecting, 2=available, 3=error)
-	Addr   string // SOCKS server address if available (e.g., "127.0.0.1:19050")
-	Error  string // Error message if status is error
+	Status bridge.Status // Current status of the SOCKS proxy
+	Addr   string        // SOCKS server address if available (e.g., "127.0.0.1:19050")
+	Error  string        // Error message if status is error
 }
 
 func (SOCKSStatusEvent) toxEvent() {}
@@ -159,8 +162,8 @@ func (SOCKSStatusEvent) toxEvent() {}
 // BridgeStatusEvent is fired when the Tor-over-Tox bridge status changes.
 // It indicates availability or errors for the bridge accessible to Tox friends.
 type BridgeStatusEvent struct {
-	Status int    // bridge.Status value (0=unavailable, 1=connecting, 2=available, 3=error)
-	Error  string // Error message if status is error
+	Status bridge.Status // Current status of the bridge
+	Error  string        // Error message if status is error
 }
 
 func (BridgeStatusEvent) toxEvent() {}

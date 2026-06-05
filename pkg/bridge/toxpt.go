@@ -46,10 +46,11 @@ func (b *bridgeService) startBridge(toxInstance interface{}) {
 	// Create a context for the bridge
 	b.ctx, b.cancel = context.WithCancel(context.Background())
 
-	// Create bridge configuration with the Tox instance
+	// Create bridge configuration with the Tox instance.
+	// TODO: Populate Config fields with toxInstance and other settings from toxpt package.
+	// The toxpt.Config struct should accept a toxcore.Tox instance and other bridge parameters.
+	// This will require understanding the toxpt package's configuration requirements.
 	cfg := toxpt.Config{}
-	// Note: toxpt.Config should be populated with the Tox instance and other settings
-	// This requires checking the toxpt package for the correct configuration fields
 
 	bridge, err := toxpt.NewEmbeddableBridge(cfg)
 	if err != nil {

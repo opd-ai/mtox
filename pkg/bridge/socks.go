@@ -71,6 +71,8 @@ func (s *socksService) startWithRetry() {
 		case <-s.done:
 			return
 		case <-time.After(backoff):
+			// Use 1.5x exponential backoff instead of 2x for faster convergence
+			// while still avoiding rapid retry storms
 			backoff = (backoff * 3) / 2
 			if backoff > maxBackoff {
 				backoff = maxBackoff
@@ -105,11 +107,12 @@ func (s *socksService) acceptConnections(listener net.Listener) {
 }
 
 // handleConnection handles a single client connection.
-// This would integrate with go-tor's SOCKS5 proxy capabilities.
+// This is a placeholder for SOCKS5 protocol handling integrated with go-tor.
+// TODO: Implement SOCKS5 protocol negotiation and route connections through go-tor's client.
+// This will enable local applications to tunnel traffic through the Tor network via this SOCKS proxy.
 func (s *socksService) handleConnection(conn net.Conn) {
 	defer conn.Close()
-	// TODO: Implement SOCKS5 protocol handling with go-tor integration
-	// For now, this is a placeholder for the actual SOCKS proxy logic
+	// Placeholder: actual SOCKS5 protocol implementation pending go-tor integration
 	_ = conn
 }
 

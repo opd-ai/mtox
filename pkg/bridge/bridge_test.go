@@ -125,9 +125,8 @@ func TestSOCKSStatus(t *testing.T) {
 	if status == bridge.StatusAvailable {
 		t.Errorf("expected SOCKS to not be available initially, got %s", status)
 	}
-	if errMsg == "" && status != bridge.StatusConnecting {
-		t.Logf("SOCKS status: %s, addr: %s, err: %s", status, addr, errMsg)
-	}
+	// Log diagnostic information for debugging SOCKS initialization
+	t.Logf("SOCKS status: %s, addr: %s, err: %s", status, addr, errMsg)
 }
 
 // TestBridgeStatus verifies bridge status queries.
@@ -138,6 +137,7 @@ func TestBridgeStatus(t *testing.T) {
 	if status == bridge.StatusAvailable {
 		t.Errorf("expected bridge to not be available (disabled by default), got %s", status)
 	}
+	// Log diagnostic information for debugging bridge initialization
 	t.Logf("Bridge status: %s, err: %s", status, errMsg)
 }
 
