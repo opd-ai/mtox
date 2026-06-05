@@ -257,11 +257,21 @@ func (bm *BridgeManager) handleConnection(conn net.Conn) {
 		if _, err := io.Copy(backendConn, conn); err != nil {
 			log.Printf("mtox: bridge: copy client->tor failed: %v", err)
 		}
+		if cw, ok := backendConn.(interface{ CloseWrite() error }); ok {
+			_ = cw.CloseWrite()
+		} else {
+			_ = backendConn.Close()
+		}
 	}()
 	go func() {
 		defer wg.Done()
 		if _, err := io.Copy(conn, backendConn); err != nil {
 			log.Printf("mtox: bridge: copy tor->client failed: %v", err)
+		}
+		if cw, ok := conn.(interface{ CloseWrite() error }); ok {
+			_ = cw.CloseWrite()
+		} else {
+			_ = conn.Close()
 		}
 	}()
 
@@ -381,11 +391,15 @@ func (bm *BridgeManager) probeBridges() {
 // as bridges. In a production implementation, this would check a marker or
 // message indicating bridge capability.
 func (bm *BridgeManager) getAvailableToxFriends() []uint32 {
-	if bm.client == nil || bm.client.tox == nil {
+	bm.mu.RLock()
+	client := bm.client
+	bm.mu.RUnlock()
+
+	if client == nil || client.tox == nil {
 		return nil
 	}
 	var available []uint32
-	friends := bm.client.GetFriends()
+	friends := client.GetFriends()
 
 	for friendID, friend := range friends {
 		// Check if friend is online and can act as bridge
