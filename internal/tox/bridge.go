@@ -250,18 +250,22 @@ func (bm *BridgeManager) handleConnection(conn net.Conn) {
 	}
 	defer backendConn.Close()
 
-	copyDone := make(chan struct{}, 2)
+	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
-		_, _ = io.Copy(backendConn, conn)
-		copyDone <- struct{}{}
+		defer wg.Done()
+		if _, err := io.Copy(backendConn, conn); err != nil {
+			log.Printf("mtox: bridge: copy client->tor failed: %v", err)
+		}
 	}()
 	go func() {
-		_, _ = io.Copy(conn, backendConn)
-		copyDone <- struct{}{}
+		defer wg.Done()
+		if _, err := io.Copy(conn, backendConn); err != nil {
+			log.Printf("mtox: bridge: copy tor->client failed: %v", err)
+		}
 	}()
 
-	<-copyDone
-	<-copyDone
+	wg.Wait()
 }
 
 func (bm *BridgeManager) ensureTorBackend() (string, error) {
