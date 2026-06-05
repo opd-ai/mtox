@@ -252,12 +252,11 @@ func (bm *BridgeManager) monitorAvailability() {
 // This implements the failover state machine:
 // - If any Tox friends are online, route through them (Tox friends active)
 // - Otherwise, route through direct Tor (Tor fallback)
-func (bm *BridgeManager) probeBridges() {
-	// Get the current list of online friends who can act as bridges
-	availableFriends := bm.getAvailableToxFriends()
-
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
+	if bm.status == BridgeDisabled || bm.status == BridgeError || bm.listener == nil {
+		return
+	}
 
 	// Update the active Tox friends list
 	oldFriends := bm.activeToxFriends
