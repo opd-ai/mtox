@@ -145,3 +145,22 @@ type FileTransferErrorEvent struct {
 }
 
 func (FileTransferErrorEvent) toxEvent() {}
+
+// SOCKSStatusEvent is fired when the SOCKS proxy status changes.
+// It indicates availability, connection status, or errors for the local SOCKS5 proxy.
+type SOCKSStatusEvent struct {
+	Status int    // bridge.Status value (0=unavailable, 1=connecting, 2=available, 3=error)
+	Addr   string // SOCKS server address if available (e.g., "127.0.0.1:19050")
+	Error  string // Error message if status is error
+}
+
+func (SOCKSStatusEvent) toxEvent() {}
+
+// BridgeStatusEvent is fired when the Tor-over-Tox bridge status changes.
+// It indicates availability or errors for the bridge accessible to Tox friends.
+type BridgeStatusEvent struct {
+	Status int    // bridge.Status value (0=unavailable, 1=connecting, 2=available, 3=error)
+	Error  string // Error message if status is error
+}
+
+func (BridgeStatusEvent) toxEvent() {}

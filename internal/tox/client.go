@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/opd-ai/mtox/pkg/bridge"
 	"github.com/opd-ai/toxcore"
 	"github.com/opd-ai/toxcore/bootstrap/nodes"
 )
@@ -35,6 +36,7 @@ type Client struct {
 	stopOnce     sync.Once
 	done         chan struct{}
 	anonymityMgr *AnonymityManager
+	bridgeMgr    *bridge.Manager
 
 	// File transfer state
 	fileMu       sync.Mutex
@@ -108,6 +110,9 @@ func NewClient() (*Client, error) {
 
 	// Initialize the anonymity network manager with the events channel
 	c.anonymityMgr = NewAnonymityManager(c.events)
+
+	// Initialize the bridge manager (SOCKS proxy + Tor-over-Tox bridge)
+	c.bridgeMgr = bridge.NewWithConfig(bridge.ConfigFromEnv())
 
 	c.registerCallbacks()
 
@@ -199,6 +204,10 @@ func (c *Client) Start() {
 		go c.iterateLoop()
 		// Start anonymity network initialization in background
 		c.anonymityMgr.Start()
+		// Start bridge services (SOCKS proxy + Tor-over-Tox bridge)
+		if err := c.bridgeMgr.Start(c.tox); err != nil {
+			log.Printf("mtox: bridge manager start failed: %v", err)
+		}
 	})
 }
 
@@ -291,7 +300,11 @@ func (c *Client) Stop() {
 				log.Printf("mtox: panic during tox cleanup: %v", r)
 			}
 		}()
-		// Stop anonymity networks first
+		// Stop bridge services first
+		if c.bridgeMgr != nil {
+			c.bridgeMgr.Stop()
+		}
+		// Stop anonymity networks
 		if c.anonymityMgr != nil {
 			c.anonymityMgr.Stop()
 		}
@@ -591,4 +604,13 @@ func uniqueFilename(path string) string {
 		}
 	}
 	return path
+}
+
+// BridgeManager returns the underlying bridge manager.
+// The manager coordinates the SOCKS proxy and Tor-over-Tox bridge services.
+func (c *Client) BridgeManager() *bridge.Manager {
+	if c == nil {
+		return nil
+	}
+	return c.bridgeMgr
 }

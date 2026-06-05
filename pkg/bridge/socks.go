@@ -1,0 +1,146 @@
+package bridge
+
+import (
+	"log"
+	"net"
+	"sync"
+	"time"
+)
+
+// socksService manages the SOCKS proxy server.
+// It provides a local SOCKS5 proxy at the configured address for Tor access.
+type socksService struct {
+	mu       sync.RWMutex
+	addr     string
+	status   Status
+	listener net.Listener
+	done     chan struct{}
+	err      string
+}
+
+// newSOCKSService creates a new SOCKS service.
+func newSOCKSService(addr string) *socksService {
+	return &socksService{
+		addr:   addr,
+		status: StatusUnavailable,
+		done:   make(chan struct{}),
+	}
+}
+
+// start begins the SOCKS proxy server with retries.
+func (s *socksService) start() {
+	s.mu.Lock()
+	s.status = StatusConnecting
+	s.mu.Unlock()
+
+	go s.startWithRetry()
+}
+
+// startWithRetry attempts to start the SOCKS server with exponential backoff.
+func (s *socksService) startWithRetry() {
+	backoff := 500 * time.Millisecond
+	maxBackoff := 1 * time.Minute
+
+	for {
+		select {
+		case <-s.done:
+			return
+		default:
+		}
+
+		// Attempt to listen on the configured address
+		listener, err := net.Listen("tcp", s.addr)
+		if err == nil {
+			s.mu.Lock()
+			s.listener = listener
+			s.status = StatusAvailable
+			s.mu.Unlock()
+
+			log.Printf("mtox: SOCKS proxy started at %s", s.addr)
+
+			// Accept connections and handle them
+			go s.acceptConnections(listener)
+			return
+		}
+
+		s.mu.Lock()
+		s.err = err.Error()
+		s.mu.Unlock()
+
+		select {
+		case <-s.done:
+			return
+		case <-time.After(backoff):
+			backoff = (backoff * 3) / 2
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
+		}
+	}
+}
+
+// acceptConnections accepts incoming connections and handles them.
+// For now, this is a placeholder that can be integrated with go-tor's client.
+func (s *socksService) acceptConnections(listener net.Listener) {
+	for {
+		select {
+		case <-s.done:
+			return
+		default:
+		}
+
+		conn, err := listener.Accept()
+		if err != nil {
+			select {
+			case <-s.done:
+				return
+			default:
+			}
+			continue
+		}
+
+		// Handle connection in background
+		go s.handleConnection(conn)
+	}
+}
+
+// handleConnection handles a single client connection.
+// This would integrate with go-tor's SOCKS5 proxy capabilities.
+func (s *socksService) handleConnection(conn net.Conn) {
+	defer conn.Close()
+	// TODO: Implement SOCKS5 protocol handling with go-tor integration
+	// For now, this is a placeholder for the actual SOCKS proxy logic
+	_ = conn
+}
+
+// getStatus returns the current SOCKS service status.
+func (s *socksService) getStatus() (Status, string, string) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	addr := ""
+	if s.listener != nil {
+		addr = s.listener.Addr().String()
+	}
+	return s.status, addr, s.err
+}
+
+// stop shuts down the SOCKS service.
+func (s *socksService) stop() {
+	select {
+	case <-s.done:
+		return
+	default:
+		close(s.done)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.listener != nil {
+		s.listener.Close()
+		s.listener = nil
+	}
+
+	s.status = StatusUnavailable
+}
