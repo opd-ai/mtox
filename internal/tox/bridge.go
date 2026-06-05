@@ -108,7 +108,7 @@ func NewBridgeManagerWithConfig(client *Client, config *BridgeConfig) *BridgeMan
 	}
 
 	probeInterval := config.ProbeInterval
-	if probeInterval == 0 {
+	if probeInterval <= 0 {
 		probeInterval = bridgeProbeInterval
 	}
 
