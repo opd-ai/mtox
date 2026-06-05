@@ -113,6 +113,109 @@ Pre-built binaries are available from the [GitHub Releases](https://github.com/o
 go build ./cmd/mtox
 ```
 
+## Bridge Integration for Go Tox Clients
+
+The mtox package includes a **Tor-over-Tox bridge module** (`internal/tox/BridgeManager`) that enables Go Tox clients to automatically leverage Tor-over-Tox routing with minimal integration effort.
+
+### Bridge Features
+
+- **Automatic SOCKS Proxy**: Operates on `127.0.0.1:19050` for transparent Tor routing
+- **Intelligent Failover**: Automatically routes traffic through available Tox friend bridges or falls back to direct Tor
+- **Zero Configuration**: Enabled by default with sensible defaults; optional disable flag for privacy-conscious clients
+- **Bridge Status Monitoring**: Simple query interface for bridge health and routing mode
+- **Thread-Safe**: All operations are safe for concurrent access
+- **Minimal Integration**: ~100 lines of code in typical client
+
+### Quick Start
+
+Initialize the bridge in your Tox client startup code:
+
+```go
+import "github.com/opd-ai/mtox/internal/tox"
+
+func main() {
+    // Create and start Tox client
+    client, err := tox.NewClient()
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer client.Stop()
+    client.Start()
+    client.Bootstrap()
+
+    // Initialize bridge (enabled by default)
+    bridge := tox.NewBridgeManager(client)
+    bridge.Start()
+    defer bridge.Stop()
+
+    // Bridge is now listening on 127.0.0.1:19050
+    // Configure your Tox-enabled applications to use this SOCKS proxy
+}
+```
+
+### Bridge Status Modes
+
+The bridge transitions between routing modes automatically:
+
+| Status | Description |
+|--------|-------------|
+| `BridgeDisabled` | Bridge is not active |
+| `BridgeInitializing` | Bridge is starting up |
+| `BridgeToxFriendsActive` | Routing through available Tox friend bridges |
+| `BridgeTorFallback` | Routing directly through Tor (no friends available) |
+| `BridgeError` | An error occurred during initialization |
+
+### Failover Logic
+
+The bridge implements automatic, intelligent failover:
+
+1. Starts in `BridgeTorFallback` mode (direct Tor routing)
+2. Every 5 seconds, probes for available Tox friends
+3. If friends are online → switches to `BridgeToxFriendsActive`
+4. If all friends go offline → falls back to `BridgeTorFallback`
+5. Traffic always routes through the best available path
+
+### Configuration
+
+Customize the bridge behavior:
+
+```go
+config := &tox.BridgeConfig{
+    Enabled:       true,              // Enable/disable bridge
+    ListenAddr:    "127.0.0.1:19050", // SOCKS proxy listen address
+    ProbeInterval: 5 * time.Second,   // How often to check friend availability
+}
+bridge := tox.NewBridgeManagerWithConfig(client, config)
+bridge.Start()
+```
+
+### Monitoring Bridge Status
+
+```go
+// Poll bridge status periodically
+if bridge.IsAvailable() {
+    status := bridge.Status()
+    friends := bridge.GetActiveToxFriends()
+    log.Printf("Bridge OK: %s with %d Tox friends", status, len(friends))
+} else {
+    log.Printf("Bridge Error: %s", bridge.StatusError())
+}
+```
+
+### Disabling the Bridge
+
+To disable the bridge entirely:
+
+```go
+config := &tox.BridgeConfig{Enabled: false}
+bridge := tox.NewBridgeManagerWithConfig(client, config)
+bridge.Start() // This is a no-op when disabled
+```
+
+### Integration Examples
+
+See [examples/bridge_integration.go](examples/bridge_integration.go) for detailed integration patterns and advanced usage.
+
 ## Embedding
 
 `mtox` now exposes an embeddable runtime at `github.com/opd-ai/mtox/pkg/embedded`.
