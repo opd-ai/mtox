@@ -335,10 +335,12 @@ func (bm *BridgeManager) GetActiveToxFriends() []uint32 {
 	return result
 }
 
-// GetListenAddr returns the address where the SOCKS proxy is listening.
 func (bm *BridgeManager) GetListenAddr() string {
 	bm.mu.RLock()
 	defer bm.mu.RUnlock()
+	if bm.listener != nil {
+		return bm.listener.Addr().String()
+	}
 	return bm.listenAddr
 }
 
