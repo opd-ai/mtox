@@ -98,7 +98,7 @@ import (
 // The bridge works in conjunction with mtox's anonymity network support:
 // - Tor is used for fallback routing when no Tox friend bridges are available
 // - I2P can coexist with the bridge for maximum connectivity
-// - The bridge automatically detects Tor availability at 127.0.0.1:9051
+// - Tor availability/detection is handled by mtox's anonymity manager, not by BridgeManager
 //
 // Performance Considerations
 //
