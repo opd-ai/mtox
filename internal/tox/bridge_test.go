@@ -236,9 +236,9 @@ func TestBridgeManager_StartIdempotent(t *testing.T) {
 	// Give goroutines a chance to run
 	time.Sleep(100 * time.Millisecond)
 
-	// Should not panic and should only initialize once
-	if bm.Status() == BridgeDisabled {
-		t.Errorf("Start() should have triggered initialization")
+	status := bm.Status()
+	if status == BridgeDisabled || status == BridgeError {
+		t.Errorf("Start() should have triggered successful initialization (status=%s, err=%q)", status, bm.StatusError())
 	}
 
 	bm.Stop()
