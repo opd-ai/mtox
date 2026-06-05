@@ -112,6 +112,15 @@ func validateLoopbackSOCKSAddr(addr string) error {
 		return fmt.Errorf("invalid MTOX_SOCKS_ADDR %q: %w", addr, err)
 	}
 	if host == "localhost" {
+		ips, lookupErr := net.LookupIP("localhost")
+		if lookupErr != nil || len(ips) == 0 {
+			return fmt.Errorf("invalid MTOX_SOCKS_ADDR %q: failed to resolve localhost", addr)
+		}
+		for _, ip := range ips {
+			if !ip.IsLoopback() {
+				return fmt.Errorf("invalid MTOX_SOCKS_ADDR %q: localhost resolves to non-loopback address", addr)
+			}
+		}
 		return nil
 	}
 

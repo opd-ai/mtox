@@ -205,6 +205,7 @@ func TestSOCKSServiceLifecycle(t *testing.T) {
 	config.EnableBridge = false
 
 	manager := bridge.NewWithConfig(config)
+	// Bridge is disabled in this test, so Start() only requires a non-nil marker value.
 	if err := manager.Start(struct{}{}); err != nil {
 		t.Fatalf("Start failed: %v", err)
 	}
@@ -248,6 +249,7 @@ func TestStartRejectsNonLoopbackSOCKSAddr(t *testing.T) {
 	config.EnableBridge = false
 
 	manager := bridge.NewWithConfig(config)
+	// Bridge is disabled in this test, so Start() only requires a non-nil marker value.
 	err := manager.Start(struct{}{})
 	if err == nil {
 		t.Fatal("expected Start to fail for non-loopback SOCKS address")

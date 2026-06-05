@@ -53,11 +53,15 @@ func (s *socksService) startWithRetry() {
 		listener, err := net.Listen("tcp", s.addr)
 		if err == nil {
 			s.mu.Lock()
+			prevErr := s.err
 			s.listener = listener
 			s.status = StatusAvailable
 			s.err = ""
 			s.mu.Unlock()
 
+			if prevErr != "" {
+				log.Printf("mtox: SOCKS proxy recovered after error: %s", prevErr)
+			}
 			log.Printf("mtox: SOCKS proxy started at %s", s.addr)
 
 			// Accept connections and handle them
@@ -73,8 +77,8 @@ func (s *socksService) startWithRetry() {
 		case <-s.done:
 			return
 		case <-time.After(backoff):
-			// Use 1.5x exponential backoff instead of 2x for faster convergence
-			// while still avoiding rapid retry storms
+			// Use 1.5x growth to keep retries smoother than 2x backoff
+			// while still avoiding rapid retry storms.
 			backoff = (backoff * 3) / 2
 			if backoff > maxBackoff {
 				backoff = maxBackoff

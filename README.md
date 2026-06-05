@@ -97,7 +97,7 @@ MTOX_ANON_ONLY=1 ./mtox
 ## Tor Services Integration
 
 mtox includes an integrated layer for dual Tor services powered by [opd-ai/go-tor](https://github.com/opd-ai/go-tor) and [opd-ai/toxpt](https://github.com/opd-ai/toxpt).
-This integration is currently a scaffold and not yet a fully functional proxy/bridge datapath.
+This integration is currently a scaffold (the service framework exists, but full traffic routing is not implemented yet).
 
 ### SOCKS Proxy (Always-On)
 - **Address**: `127.0.0.1:19050` (default, configurable)
@@ -105,7 +105,7 @@ This integration is currently a scaffold and not yet a fully functional proxy/br
 - **Enabled By Default**: Yes
 - **Control**: `MTOX_ENABLE_SOCKS=0` to disable
 
-Current behavior: connections are accepted and then explicitly rejected during SOCKS5 negotiation.
+Current behavior: connections are accepted and immediately closed with SOCKS5 "no acceptable methods" (`0xFF`) to prevent client hangs.
 
 ### Tor-over-Tox Bridge (Optional)
 - **Purpose**: Route Tor traffic through Tox connections to friends

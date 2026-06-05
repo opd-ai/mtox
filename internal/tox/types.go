@@ -150,7 +150,7 @@ type FileTransferErrorEvent struct {
 func (FileTransferErrorEvent) toxEvent() {}
 
 // SOCKSStatusEvent represents SOCKS proxy status information.
-// This event type is reserved for bridge-status integration and is not emitted yet.
+// TODO: wire bridge manager status transitions to emit this event.
 type SOCKSStatusEvent struct {
 	Status bridge.Status // Current status of the SOCKS proxy
 	Addr   string        // SOCKS server address if available (e.g., "127.0.0.1:19050")
@@ -160,7 +160,7 @@ type SOCKSStatusEvent struct {
 func (SOCKSStatusEvent) toxEvent() {}
 
 // BridgeStatusEvent represents Tor-over-Tox bridge status information.
-// This event type is reserved for bridge-status integration and is not emitted yet.
+// TODO: wire bridge manager status transitions to emit this event.
 type BridgeStatusEvent struct {
 	Status bridge.Status // Current status of the bridge
 	Error  string        // Error message if status is error

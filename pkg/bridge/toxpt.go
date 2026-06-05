@@ -45,8 +45,8 @@ func (b *bridgeService) start(toxInstance interface{}) {
 // startBridge initializes the toxpt bridge and begins advertisement.
 func (b *bridgeService) startBridge(toxInstance interface{}) {
 	// Create a context for the bridge
-	ctx, cancel := context.WithCancel(context.Background())
 	b.mu.Lock()
+	ctx, cancel := context.WithCancel(context.Background())
 	b.ctx = ctx
 	b.cancel = cancel
 	b.mu.Unlock()
