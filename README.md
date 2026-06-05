@@ -119,8 +119,8 @@ The mtox package includes a **Tor-over-Tox bridge module** (`internal/tox/Bridge
 
 ### Bridge Features
 
-- **Automatic SOCKS Proxy**: Operates on `127.0.0.1:19050` for transparent Tor routing
-- **Intelligent Failover**: Automatically routes traffic through available Tox friend bridges or falls back to direct Tor
+- **SOCKS Proxy (stub)**: Listens on `127.0.0.1:19050` (SOCKS5 handler/routing not implemented yet)
+- **Failover State Tracking**: Periodically probes friend availability and updates status (routing integration TODO)
 - **Zero Configuration**: Enabled by default with sensible defaults; optional disable flag for privacy-conscious clients
 - **Bridge Status Monitoring**: Simple query interface for bridge health and routing mode
 - **Thread-Safe**: All operations are safe for concurrent access
