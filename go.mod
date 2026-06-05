@@ -6,6 +6,7 @@ require (
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
+	github.com/opd-ai/go-tor v0.0.0-20260524064806-f73c7e3be679
 	github.com/opd-ai/toxcore v1.4.0-qtox-preview.0.20260604201511-46dc6e1f7d37
 )
 
@@ -35,12 +36,12 @@ require (
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
-	github.com/opd-ai/go-tor v0.0.0-20260524064806-f73c7e3be679 // indirect
 	github.com/opd-ai/magnum v0.0.0-20260324160013-b37fddfcd246 // indirect
 	github.com/opd-ai/vp8 v0.0.0-20260407023446-a01cf06c95d4 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtp v1.10.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/rogpeppe/go-internal v1.15.0 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/xlab/libvpx-go v0.0.0-20220203233824-652b2616315c // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
