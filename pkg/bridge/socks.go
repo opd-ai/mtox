@@ -1,6 +1,7 @@
 package bridge
 
 import (
+	"io"
 	"log"
 	"net"
 	"sync"
@@ -54,6 +55,7 @@ func (s *socksService) startWithRetry() {
 			s.mu.Lock()
 			s.listener = listener
 			s.status = StatusAvailable
+			s.err = ""
 			s.mu.Unlock()
 
 			log.Printf("mtox: SOCKS proxy started at %s", s.addr)
@@ -112,8 +114,31 @@ func (s *socksService) acceptConnections(listener net.Listener) {
 // This will enable local applications to tunnel traffic through the Tor network via this SOCKS proxy.
 func (s *socksService) handleConnection(conn net.Conn) {
 	defer conn.Close()
-	// Placeholder: actual SOCKS5 protocol implementation pending go-tor integration
-	_ = conn
+
+	// Minimal SOCKS5 negotiation: explicitly reject all methods so clients fail fast
+	// instead of hanging on a half-open TCP connection.
+	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
+
+	header := make([]byte, 2)
+	if _, err := io.ReadFull(conn, header); err != nil {
+		return
+	}
+	if header[0] != 0x05 {
+		return
+	}
+
+	methodCount := int(header[1])
+	if methodCount <= 0 {
+		return
+	}
+
+	methods := make([]byte, methodCount)
+	if _, err := io.ReadFull(conn, methods); err != nil {
+		return
+	}
+
+	// 0xFF means "no acceptable authentication methods".
+	_, _ = conn.Write([]byte{0x05, 0xFF})
 }
 
 // getStatus returns the current SOCKS service status.

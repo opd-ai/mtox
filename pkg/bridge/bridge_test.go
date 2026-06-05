@@ -1,6 +1,7 @@
 package bridge_test
 
 import (
+	"net"
 	"testing"
 	"time"
 
@@ -194,6 +195,62 @@ func TestConcurrentStatusChecks(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		<-done
+	}
+}
+
+func TestSOCKSServiceLifecycle(t *testing.T) {
+	config := bridge.DefaultConfig()
+	config.SOCKSAddr = "127.0.0.1:0"
+	config.EnableSOCKS = true
+	config.EnableBridge = false
+
+	manager := bridge.NewWithConfig(config)
+	if err := manager.Start(struct{}{}); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	t.Cleanup(manager.Stop)
+
+	var addr string
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		status, gotAddr, errMsg := manager.SOCKSStatus()
+		if status == bridge.StatusAvailable {
+			addr = gotAddr
+			break
+		}
+		if status == bridge.StatusError {
+			t.Fatalf("SOCKS reached error status: %s", errMsg)
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	if addr == "" {
+		status, _, errMsg := manager.SOCKSStatus()
+		t.Fatalf("SOCKS did not become available in time (status=%s err=%s)", status, errMsg)
+	}
+
+	conn, err := net.DialTimeout("tcp", addr, 500*time.Millisecond)
+	if err != nil {
+		t.Fatalf("failed to dial SOCKS listener %q: %v", addr, err)
+	}
+	_ = conn.Close()
+
+	manager.Stop()
+
+	if _, err := net.DialTimeout("tcp", addr, 500*time.Millisecond); err == nil {
+		t.Fatalf("expected dial to fail after Stop for %q", addr)
+	}
+}
+
+func TestStartRejectsNonLoopbackSOCKSAddr(t *testing.T) {
+	config := bridge.DefaultConfig()
+	config.SOCKSAddr = "0.0.0.0:19050"
+	config.EnableSOCKS = true
+	config.EnableBridge = false
+
+	manager := bridge.NewWithConfig(config)
+	err := manager.Start(struct{}{})
+	if err == nil {
+		t.Fatal("expected Start to fail for non-loopback SOCKS address")
 	}
 }
 

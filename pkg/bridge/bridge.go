@@ -17,6 +17,7 @@ package bridge
 import (
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"sync"
 )
@@ -51,8 +52,8 @@ func NewWithConfig(config Config) *Manager {
 // ConfigFromEnv creates a configuration by checking environment variables.
 // Environment variables:
 //   - MTOX_SOCKS_ADDR: SOCKS server address (default: "127.0.0.1:19050")
-//   - MTOX_ENABLE_SOCKS: Enable SOCKS proxy (default: "1")
-//   - MTOX_ENABLE_BRIDGE: Enable Tor-over-Tox bridge (default: "0")
+//   - MTOX_ENABLE_SOCKS: Set to "0" to disable SOCKS proxy (default behavior: enabled)
+//   - MTOX_ENABLE_BRIDGE: Set to "1" to enable Tor-over-Tox bridge (default behavior: disabled)
 func ConfigFromEnv() Config {
 	config := DefaultConfig()
 
@@ -84,6 +85,10 @@ func (m *Manager) Start(tox interface{}) error {
 		m.mu.Unlock()
 
 		if m.config.EnableSOCKS {
+			if err := validateLoopbackSOCKSAddr(m.config.SOCKSAddr); err != nil {
+				startErr = err
+				return
+			}
 			log.Println("mtox: starting SOCKS proxy service")
 			m.socks.start()
 		} else {
@@ -99,6 +104,22 @@ func (m *Manager) Start(tox interface{}) error {
 	})
 
 	return startErr
+}
+
+func validateLoopbackSOCKSAddr(addr string) error {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return fmt.Errorf("invalid MTOX_SOCKS_ADDR %q: %w", addr, err)
+	}
+	if host == "localhost" {
+		return nil
+	}
+
+	ip := net.ParseIP(host)
+	if ip == nil || !ip.IsLoopback() {
+		return fmt.Errorf("invalid MTOX_SOCKS_ADDR %q: must bind to loopback only", addr)
+	}
+	return nil
 }
 
 // Stop gracefully shuts down both services.

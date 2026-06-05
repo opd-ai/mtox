@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/opd-ai/toxpt"
+	"github.com/opd-ai/toxcore"
 )
 
 // bridgeService manages the Tor-over-Tox bridge.
@@ -44,13 +45,25 @@ func (b *bridgeService) start(toxInstance interface{}) {
 // startBridge initializes the toxpt bridge and begins advertisement.
 func (b *bridgeService) startBridge(toxInstance interface{}) {
 	// Create a context for the bridge
-	b.ctx, b.cancel = context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	b.mu.Lock()
+	b.ctx = ctx
+	b.cancel = cancel
+	b.mu.Unlock()
+
+	toxClient, ok := toxInstance.(*toxcore.Tox)
+	if !ok || toxClient == nil {
+		b.mu.Lock()
+		b.status = StatusError
+		b.err = "bridge init: invalid tox instance"
+		b.mu.Unlock()
+		log.Printf("mtox: Tor-over-Tox bridge init failed: invalid tox instance")
+		return
+	}
 
 	// Create bridge configuration with the Tox instance.
-	// TODO: Populate Config fields with toxInstance and other settings from toxpt package.
-	// The toxpt.Config struct should accept a toxcore.Tox instance and other bridge parameters.
-	// This will require understanding the toxpt package's configuration requirements.
-	cfg := toxpt.Config{}
+	cfg := toxpt.DefaultConfig()
+	cfg.ToxClient = toxClient
 
 	bridge, err := toxpt.NewEmbeddableBridge(cfg)
 	if err != nil {
@@ -64,7 +77,7 @@ func (b *bridgeService) startBridge(toxInstance interface{}) {
 	}
 
 	// Start the bridge
-	if err := bridge.Start(b.ctx); err != nil {
+	if err := bridge.Start(ctx); err != nil {
 		b.mu.Lock()
 		b.status = StatusError
 		b.err = fmt.Sprintf("bridge start: %v", err)

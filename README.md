@@ -96,19 +96,16 @@ MTOX_ANON_ONLY=1 ./mtox
 
 ## Tor Services Integration
 
-mtox includes an integrated layer enabling dual Tor services powered by [opd-ai/go-tor](https://github.com/opd-ai/go-tor) and [opd-ai/toxpt](https://github.com/opd-ai/toxpt):
+mtox includes an integrated layer for dual Tor services powered by [opd-ai/go-tor](https://github.com/opd-ai/go-tor) and [opd-ai/toxpt](https://github.com/opd-ai/toxpt).
+This integration is currently a scaffold and not yet a fully functional proxy/bridge datapath.
 
 ### SOCKS Proxy (Always-On)
 - **Address**: `127.0.0.1:19050` (default, configurable)
-- **Purpose**: Local SOCKS5 proxy for applications to tunnel traffic through Tor
+- **Purpose**: Local SOCKS endpoint reserved for upcoming Tor proxy integration
 - **Enabled By Default**: Yes
 - **Control**: `MTOX_ENABLE_SOCKS=0` to disable
 
-Local applications can route HTTP/HTTPS and other protocols through mtox's SOCKS proxy:
-
-```bash
-curl -x socks5://127.0.0.1:19050 http://example.com
-```
+Current behavior: connections are accepted and then explicitly rejected during SOCKS5 negotiation.
 
 ### Tor-over-Tox Bridge (Optional)
 - **Purpose**: Route Tor traffic through Tox connections to friends
@@ -116,7 +113,7 @@ curl -x socks5://127.0.0.1:19050 http://example.com
 - **Enabled By Default**: No (disabled for privacy)
 - **Control**: `MTOX_ENABLE_BRIDGE=1` to enable
 
-When enabled, connected Tox friends can route their Tor traffic through your instance, providing privacy-preserving connectivity over Tox's peer-to-peer network.
+When enabled, mtox initializes bridge components, but full Tor-over-Tox traffic routing is not yet complete.
 
 ### Configuration
 
@@ -138,7 +135,10 @@ MTOX_ENABLE_SOCKS=1 MTOX_ENABLE_BRIDGE=1 ./mtox
 
 ### Programmatic Integration
 
-Go Tox clients can activate both services with a single call:
+The full client example below uses `internal/tox`, which is only importable from within this module.
+External modules should use the public `pkg/bridge` package directly.
+
+Within this repository, Tox clients can activate both services with a single call:
 
 ```go
 import "github.com/opd-ai/mtox/internal/tox"

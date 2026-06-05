@@ -30,16 +30,14 @@ func (s Status) String() string {
 	}
 }
 
-// SOCKSStatusEvent is fired when SOCKS proxy status changes.
-// It implements tox.ToxEvent.
+// SOCKSStatusEvent describes SOCKS proxy status for bridge-level consumers.
 type SOCKSStatusEvent struct {
 	Status Status
 	Addr   string // SOCKS server address if available (e.g., "127.0.0.1:19050")
 	Error  string // Error message if status is Error
 }
 
-// BridgeStatusEvent is fired when Tor-over-Tox bridge status changes.
-// It implements tox.ToxEvent.
+// BridgeStatusEvent describes Tor-over-Tox bridge status for bridge-level consumers.
 type BridgeStatusEvent struct {
 	Status Status
 	Error  string // Error message if status is Error
