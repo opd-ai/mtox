@@ -379,19 +379,28 @@ func TestBridgeManager_ConcurrentStatusAccess(t *testing.T) {
 
 	// Multiple goroutines reading status concurrently
 	done := make(chan bool, 3)
+	errors := make(chan string, 3)
+
 	for i := 0; i < 3; i++ {
 		go func() {
+			defer func() { done <- true }()
 			status := bm.Status()
 			if status != BridgeToxFriendsActive {
-				t.Errorf("Concurrent read got unexpected status")
+				errors <- "Concurrent read got unexpected status"
 			}
-			done <- true
 		}()
 	}
 
 	// Wait for all reads to complete
 	for i := 0; i < 3; i++ {
 		<-done
+	}
+
+	// Check for any errors from goroutines
+	select {
+	case err := <-errors:
+		t.Errorf("%s", err)
+	default:
 	}
 }
 

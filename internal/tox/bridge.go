@@ -200,7 +200,10 @@ func (bm *BridgeManager) acceptConnections() {
 		}
 
 		// Set a read deadline to periodically check if we're stopped
-		listener.(*net.TCPListener).SetDeadline(time.Now().Add(5 * time.Second))
+		// Type assert to TCP listener to set deadline
+		if tcpListener, ok := listener.(*net.TCPListener); ok {
+			tcpListener.SetDeadline(time.Now().Add(5 * time.Second))
+		}
 
 		conn, err := listener.Accept()
 		if err != nil {

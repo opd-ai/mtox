@@ -202,8 +202,25 @@ func ExampleBridgeWithCustomConfig() {
 	//
 	// config := &tox.BridgeConfig{
 	//     Enabled:        true,
-	//     ListenAddr:     "0.0.0.0:19050",        // Listen on all interfaces
+	//     ListenAddr:     "127.0.0.1:19050",      // Local-only access (recommended)
 	//     ProbeInterval:  2 * time.Second,        // Check friends more frequently
+	// }
+	//
+	// WARNING: Do NOT bind to 0.0.0.0:19050 in production!
+	// Binding to 0.0.0.0 exposes the SOCKS proxy to all network interfaces,
+	// potentially allowing unauthorized external access to the bridge.
+	// Use 127.0.0.1 (localhost-only) unless you have explicit security controls:
+	//
+	// For multi-machine setups, use a firewall to restrict access:
+	// - Only allow trusted IPs to access the bridge
+	// - Use VPN or SSH tunneling for remote access
+	// - Consider authentication/authorization layers
+	//
+	// Example for trusted local network:
+	//
+	// config := &tox.BridgeConfig{
+	//     Enabled:    true,
+	//     ListenAddr: "192.168.1.10:19050",  // Internal network only
 	// }
 	//
 	// client, _ := tox.NewClient()
