@@ -91,6 +91,7 @@ type BridgeManager struct {
 	done      chan struct{}
 	initOnce  sync.Once
 	closeOnce sync.Once
+	torInitMu sync.Mutex
 
 	// Client reference for accessing Tox state
 	client *Client
@@ -259,8 +260,6 @@ func (bm *BridgeManager) handleConnection(conn net.Conn) {
 		}
 		if cw, ok := backendConn.(interface{ CloseWrite() error }); ok {
 			_ = cw.CloseWrite()
-		} else {
-			_ = backendConn.Close()
 		}
 	}()
 	go func() {
@@ -270,8 +269,6 @@ func (bm *BridgeManager) handleConnection(conn net.Conn) {
 		}
 		if cw, ok := conn.(interface{ CloseWrite() error }); ok {
 			_ = cw.CloseWrite()
-		} else {
-			_ = conn.Close()
 		}
 	}()
 
@@ -279,6 +276,17 @@ func (bm *BridgeManager) handleConnection(conn net.Conn) {
 }
 
 func (bm *BridgeManager) ensureTorBackend() (string, error) {
+	bm.mu.RLock()
+	if bm.torClient != nil && bm.torProxyAddr != "" {
+		addr := bm.torProxyAddr
+		bm.mu.RUnlock()
+		return addr, nil
+	}
+	bm.mu.RUnlock()
+
+	bm.torInitMu.Lock()
+	defer bm.torInitMu.Unlock()
+
 	bm.mu.RLock()
 	if bm.torClient != nil && bm.torProxyAddr != "" {
 		addr := bm.torProxyAddr
