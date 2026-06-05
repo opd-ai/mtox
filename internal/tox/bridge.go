@@ -261,6 +261,7 @@ func (bm *BridgeManager) handleConnection(conn net.Conn) {
 	}()
 
 	<-copyDone
+	<-copyDone
 }
 
 func (bm *BridgeManager) ensureTorBackend() (string, error) {
