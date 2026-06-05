@@ -285,11 +285,9 @@ func (bm *BridgeManager) monitorAvailability() {
 // getAvailableToxFriends returns the list of online Tox friends that can be used
 // as bridges. In a production implementation, this would check a marker or
 // message indicating bridge capability.
-func (bm *BridgeManager) getAvailableToxFriends() []uint32 {
-	if bm.client == nil {
+	if bm.client == nil || bm.client.tox == nil {
 		return nil
 	}
-
 	var available []uint32
 	friends := bm.client.GetFriends()
 
