@@ -184,9 +184,9 @@ func ExampleBridgeFailover() {
 
 // ExampleBridgeWithDisableOption shows how to optionally disable the bridge.
 func ExampleBridgeWithDisableOption() {
-	// Disable via environment variable (if needed):
-	// Set MTOX_DISABLE_BRIDGE=1 before starting the application
+	// Disable via configuration (if needed):
 	//
+	// (There is currently no MTOX_DISABLE_BRIDGE environment variable; use BridgeConfig.Enabled instead.)
 	// Or disable via configuration:
 	//
 	// config := &tox.BridgeConfig{Enabled: false}
