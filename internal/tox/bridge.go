@@ -56,8 +56,8 @@ func (s BridgeStatus) String() string {
 
 // BridgeConfig holds configuration for the bridge.
 type BridgeConfig struct {
-	// Enabled controls whether the bridge should be active. Default: true.
-	Enabled bool
+	// Enabled controls whether the bridge should be active. Nil defaults to true.
+	Enabled *bool
 	// ListenAddr overrides the default SOCKS listen address (testing only).
 	ListenAddr string
 	// ProbeInterval overrides the default bridge availability check interval.
@@ -91,15 +91,20 @@ type BridgeManager struct {
 }
 
 // NewBridgeManager creates a new bridge manager with default configuration.
-// The bridge is enabled by default. Pass config with Enabled: false to disable.
+// The bridge is enabled by default. Pass config with Enabled set to false to disable.
 func NewBridgeManager(client *Client) *BridgeManager {
-	return NewBridgeManagerWithConfig(client, &BridgeConfig{Enabled: true})
+	return NewBridgeManagerWithConfig(client, &BridgeConfig{})
 }
 
 // NewBridgeManagerWithConfig creates a new bridge manager with custom configuration.
 func NewBridgeManagerWithConfig(client *Client, config *BridgeConfig) *BridgeManager {
 	if config == nil {
-		config = &BridgeConfig{Enabled: true}
+		config = &BridgeConfig{}
+	}
+
+	enabled := true
+	if config.Enabled != nil {
+		enabled = *config.Enabled
 	}
 
 	listenAddr := config.ListenAddr
@@ -113,7 +118,7 @@ func NewBridgeManagerWithConfig(client *Client, config *BridgeConfig) *BridgeMan
 	}
 
 	bm := &BridgeManager{
-		enabled:      config.Enabled,
+		enabled:      enabled,
 		listenAddr:   listenAddr,
 		probeInterval: probeInterval,
 		status:       BridgeDisabled,
@@ -122,7 +127,7 @@ func NewBridgeManagerWithConfig(client *Client, config *BridgeConfig) *BridgeMan
 	}
 
 	// If disabled via config, mark as such immediately
-	if !config.Enabled {
+	if !enabled {
 		bm.status = BridgeDisabled
 	}
 

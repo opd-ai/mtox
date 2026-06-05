@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+func boolPtr(v bool) *bool {
+	return &v
+}
+
 // TestBridgeStatus tests the BridgeStatus String method.
 func TestBridgeStatus_String(t *testing.T) {
 	tests := []struct {
@@ -54,7 +58,7 @@ func TestNewBridgeManager(t *testing.T) {
 // TestNewBridgeManagerWithConfig_Disabled tests bridge creation with disabled config.
 func TestNewBridgeManagerWithConfig_Disabled(t *testing.T) {
 	client := &Client{}
-	config := &BridgeConfig{Enabled: false}
+	config := &BridgeConfig{Enabled: boolPtr(false)}
 
 	bm := NewBridgeManagerWithConfig(client, config)
 
@@ -71,7 +75,7 @@ func TestNewBridgeManagerWithConfig_CustomListenAddr(t *testing.T) {
 	client := &Client{}
 	customAddr := "127.0.0.1:9999"
 	config := &BridgeConfig{
-		Enabled:    true,
+		Enabled:    boolPtr(true),
 		ListenAddr: customAddr,
 	}
 
@@ -87,7 +91,7 @@ func TestNewBridgeManagerWithConfig_CustomProbeInterval(t *testing.T) {
 	client := &Client{}
 	customInterval := 2 * time.Second
 	config := &BridgeConfig{
-		Enabled:       true,
+		Enabled:       boolPtr(true),
 		ProbeInterval: customInterval,
 	}
 
@@ -126,7 +130,7 @@ func TestBridgeManager_Status(t *testing.T) {
 // TestBridgeManager_StatusError tests status error getter.
 func TestBridgeManager_StatusError(t *testing.T) {
 	client := &Client{}
-	config := &BridgeConfig{Enabled: true, ListenAddr: "invalid:invalid"}
+	config := &BridgeConfig{Enabled: boolPtr(true), ListenAddr: "invalid:invalid"}
 	bm := NewBridgeManagerWithConfig(client, config)
 
 	// Manually set an error for testing
@@ -214,7 +218,7 @@ func TestBridgeManager_GetActiveToxFriends(t *testing.T) {
 func TestBridgeManager_GetListenAddr(t *testing.T) {
 	customAddr := "127.0.0.1:8888"
 	client := &Client{}
-	config := &BridgeConfig{Enabled: true, ListenAddr: customAddr}
+	config := &BridgeConfig{Enabled: boolPtr(true), ListenAddr: customAddr}
 	bm := NewBridgeManagerWithConfig(client, config)
 
 	addr := bm.GetListenAddr()
@@ -247,7 +251,7 @@ func TestBridgeManager_StartIdempotent(t *testing.T) {
 // TestBridgeManager_StartDisabled tests that Start() does nothing when disabled.
 func TestBridgeManager_StartDisabled(t *testing.T) {
 	client := &Client{}
-	config := &BridgeConfig{Enabled: false}
+	config := &BridgeConfig{Enabled: boolPtr(false)}
 	bm := NewBridgeManagerWithConfig(client, config)
 
 	bm.Start()
@@ -365,6 +369,9 @@ func TestBridgeConfig_Defaults(t *testing.T) {
 	if bm.probeInterval != bridgeProbeInterval {
 		t.Errorf("Empty config should use default probeInterval")
 	}
+	if !bm.enabled {
+		t.Errorf("Empty config should default to enabled bridge")
+	}
 }
 
 // TestBridgeManager_ConcurrentStatusAccess tests thread-safe status access.
@@ -416,7 +423,7 @@ func TestBridgeManager_ListenerAddressFormat(t *testing.T) {
 
 	for _, tt := range tests {
 		client := &Client{}
-		config := &BridgeConfig{Enabled: true, ListenAddr: tt.addr}
+		config := &BridgeConfig{Enabled: boolPtr(true), ListenAddr: tt.addr}
 		bm := NewBridgeManagerWithConfig(client, config)
 
 		if bm.GetListenAddr() != tt.addr {
