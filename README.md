@@ -131,6 +131,7 @@ The mtox package includes a **Tor-over-Tox bridge module** (`internal/tox/Bridge
 Initialize the bridge in your Tox client startup code:
 
 ```go
+// Note: packages under internal/ can only be imported by code within the github.com/opd-ai/mtox module.
 import "github.com/opd-ai/mtox/internal/tox"
 
 func main() {
