@@ -7,10 +7,14 @@ package tox
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"strconv"
 	"sync"
 	"time"
+
+	torclient "github.com/opd-ai/go-tor/pkg/client"
 )
 
 const (
@@ -71,23 +75,25 @@ type BridgeManager struct {
 	mu sync.RWMutex
 
 	// Configuration
-	enabled     bool
-	listenAddr  string
+	enabled       bool
+	listenAddr    string
 	probeInterval time.Duration
 
 	// State
-	status       BridgeStatus
-	statusError  string
-	listener     net.Listener
+	status           BridgeStatus
+	statusError      string
+	listener         net.Listener
+	torClient        *torclient.SimpleClient
+	torProxyAddr     string
 	activeToxFriends []uint32
 
 	// Control
-	done         chan struct{}
-	initOnce     sync.Once
-	closeOnce    sync.Once
+	done      chan struct{}
+	initOnce  sync.Once
+	closeOnce sync.Once
 
 	// Client reference for accessing Tox state
-	client       *Client
+	client *Client
 }
 
 // NewBridgeManager creates a new bridge manager with default configuration.
@@ -118,12 +124,12 @@ func NewBridgeManagerWithConfig(client *Client, config *BridgeConfig) *BridgeMan
 	}
 
 	bm := &BridgeManager{
-		enabled:      enabled,
-		listenAddr:   listenAddr,
+		enabled:       enabled,
+		listenAddr:    listenAddr,
 		probeInterval: probeInterval,
-		status:       BridgeDisabled,
-		done:         make(chan struct{}),
-		client:       client,
+		status:        BridgeDisabled,
+		done:          make(chan struct{}),
+		client:        client,
 	}
 
 	// If disabled via config, mark as such immediately
@@ -183,13 +189,12 @@ func (bm *BridgeManager) initializeBridge() {
 
 	log.Printf("mtox: bridge: SOCKS proxy listening on %s (initial mode: tor_fallback)", bm.listenAddr)
 
-	// Accept connections (simplified: just close them for now as placeholder)
+	// Accept connections and proxy them through the embedded Tor client.
 	go bm.acceptConnections()
 }
 
 // acceptConnections accepts incoming SOCKS proxy connections.
-// In a production implementation, this would handle SOCKS protocol handshake
-// and route traffic based on current bridge state.
+// Connections are forwarded byte-for-byte to a go-tor SOCKS backend.
 func (bm *BridgeManager) acceptConnections() {
 	for {
 		if bm.isStopped() {
@@ -225,14 +230,91 @@ func (bm *BridgeManager) acceptConnections() {
 		}
 
 		// Handle connection in background to avoid blocking accept loop
-		// In a production implementation, this would handle SOCKS handshake
-		// and route based on bm.getRouteMode()
-		go func(conn net.Conn) {
-			defer conn.Close()
-			// Placeholder: close immediately
-			// TODO: implement full SOCKS5 protocol handler
-		}(conn)
+		go bm.handleConnection(conn)
 	}
+}
+
+func (bm *BridgeManager) handleConnection(conn net.Conn) {
+	defer conn.Close()
+
+	backendAddr, err := bm.ensureTorBackend()
+	if err != nil {
+		log.Printf("mtox: bridge: failed to initialize Tor backend: %v", err)
+		return
+	}
+
+	backendConn, err := net.Dial("tcp", backendAddr)
+	if err != nil {
+		log.Printf("mtox: bridge: failed to connect to Tor backend %s: %v", backendAddr, err)
+		return
+	}
+	defer backendConn.Close()
+
+	copyDone := make(chan struct{}, 2)
+	go func() {
+		_, _ = io.Copy(backendConn, conn)
+		copyDone <- struct{}{}
+	}()
+	go func() {
+		_, _ = io.Copy(conn, backendConn)
+		copyDone <- struct{}{}
+	}()
+
+	<-copyDone
+}
+
+func (bm *BridgeManager) ensureTorBackend() (string, error) {
+	bm.mu.RLock()
+	if bm.torClient != nil && bm.torProxyAddr != "" {
+		addr := bm.torProxyAddr
+		bm.mu.RUnlock()
+		return addr, nil
+	}
+	bm.mu.RUnlock()
+
+	port, err := allocateLocalPort()
+	if err != nil {
+		return "", err
+	}
+
+	tor, err := torclient.ConnectWithOptions(&torclient.Options{
+		SocksPort: port,
+		LogLevel:  "error",
+	})
+	if err != nil {
+		return "", err
+	}
+
+	addr := tor.ProxyAddr()
+
+	bm.mu.Lock()
+	if bm.torClient == nil {
+		bm.torClient = tor
+		bm.torProxyAddr = addr
+		bm.mu.Unlock()
+		return addr, nil
+	}
+
+	// Another goroutine initialized it first.
+	existingAddr := bm.torProxyAddr
+	bm.mu.Unlock()
+	_ = tor.Close()
+	return existingAddr, nil
+}
+
+func allocateLocalPort() (int, error) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+
+	_, portStr, err := net.SplitHostPort(l.Addr().String())
+	if err != nil {
+		return 0, err
+	}
+
+	return strconv.Atoi(portStr)
 }
 
 // monitorAvailability continuously monitors bridge availability and updates
@@ -257,6 +339,9 @@ func (bm *BridgeManager) monitorAvailability() {
 // This implements the failover state machine:
 // - If any Tox friends are online, route through them (Tox friends active)
 // - Otherwise, route through direct Tor (Tor fallback)
+func (bm *BridgeManager) probeBridges() {
+	availableFriends := bm.getAvailableToxFriends()
+
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
 	if bm.status == BridgeDisabled || bm.status == BridgeError || bm.listener == nil {
@@ -290,6 +375,7 @@ func (bm *BridgeManager) monitorAvailability() {
 // getAvailableToxFriends returns the list of online Tox friends that can be used
 // as bridges. In a production implementation, this would check a marker or
 // message indicating bridge capability.
+func (bm *BridgeManager) getAvailableToxFriends() []uint32 {
 	if bm.client == nil || bm.client.tox == nil {
 		return nil
 	}
@@ -372,6 +458,11 @@ func (bm *BridgeManager) Stop() {
 		if bm.listener != nil {
 			bm.listener.Close()
 			bm.listener = nil
+		}
+		if bm.torClient != nil {
+			_ = bm.torClient.Close()
+			bm.torClient = nil
+			bm.torProxyAddr = ""
 		}
 
 		bm.status = BridgeDisabled

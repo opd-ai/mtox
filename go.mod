@@ -25,6 +25,7 @@ require (
 	github.com/go-i2p/i2pkeys v0.33.92 // indirect
 	github.com/go-i2p/onramp v0.33.92 // indirect
 	github.com/go-i2p/sam3 v0.33.92 // indirect
+	github.com/gofrs/flock v0.13.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/klauspost/reedsolomon v1.13.3 // indirect
 	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
@@ -34,6 +35,7 @@ require (
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
+	github.com/opd-ai/go-tor v0.0.0-20260524064806-f73c7e3be679 // indirect
 	github.com/opd-ai/magnum v0.0.0-20260324160013-b37fddfcd246 // indirect
 	github.com/opd-ai/vp8 v0.0.0-20260407023446-a01cf06c95d4 // indirect
 	github.com/pion/randutil v0.1.0 // indirect

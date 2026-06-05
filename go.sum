@@ -38,6 +38,8 @@ github.com/go-i2p/onramp v0.33.92 h1:Dk3A0SGpdEw829rSjW2LqN8o16pUvuhiN0vn36z7Gpc
 github.com/go-i2p/onramp v0.33.92/go.mod h1:5sfB8H2xk05gAS2K7XAUZ7ekOfwGJu3tWF0fqdXzJG4=
 github.com/go-i2p/sam3 v0.33.92 h1:TVpi4GH7Yc7nZBiE1QxLjcZfnC4fI/80zxQz1Rk36BA=
 github.com/go-i2p/sam3 v0.33.92/go.mod h1:oDuV145l5XWKKafeE4igJHTDpPwA0Yloz9nyKKh92eo=
+github.com/gofrs/flock v0.13.0 h1:95JolYOvGMqeH31+FC7D2+uULf6mG61mEZ/A8dRYMzw=
+github.com/gofrs/flock v0.13.0/go.mod h1:jxeyy9R1auM5S6JYDBhDt+E2TCo7DkratH4Pgi8P+Z0=
 github.com/klauspost/cpuid/v2 v2.3.0 h1:S4CRMLnYUhGeDFDqkGriYKdfoFlDnMtqTiI/sFzhA9Y=
 github.com/klauspost/cpuid/v2 v2.3.0/go.mod h1:hqwkgyIinND0mEev00jJYCxPNVRVXFQeu1XKlok6oO0=
 github.com/klauspost/reedsolomon v1.13.3 h1:01GwnO2xoCSaM0ShP4qwl+FsHg3csFShC6Tu/RS1ji0=
@@ -62,6 +64,8 @@ github.com/muesli/cancelreader v0.2.2 h1:3I4Kt4BQjOR54NavqnDogx/MIoWBFa0StPA8ELU
 github.com/muesli/cancelreader v0.2.2/go.mod h1:3XuTXfFS2VjM+HTLZY9Ak0l6eUKfijIfMUZ4EgX0QYo=
 github.com/muesli/termenv v0.16.0 h1:S5AlUN9dENB57rsbnkPyfdGuWIlkmzJjbFf0Tf5FWUc=
 github.com/muesli/termenv v0.16.0/go.mod h1:ZRfOIKPFDYQoDFF4Olj7/QJbW60Ol/kL1pU3VfY/Cnk=
+github.com/opd-ai/go-tor v0.0.0-20260524064806-f73c7e3be679 h1:5cUADZPvyPypDnNhv0mCLJmPvXtbN3s9FErksg28YHM=
+github.com/opd-ai/go-tor v0.0.0-20260524064806-f73c7e3be679/go.mod h1:+nlwvnQtLLrlzkeWcHPtiZ7yVJQRQnUjsPuStbpd7mo=
 github.com/opd-ai/magnum v0.0.0-20260324160013-b37fddfcd246 h1:3RBHWkrBSDnP4XNXBHdUVpmVdFAlD/zxYyOGWVBQsGo=
 github.com/opd-ai/magnum v0.0.0-20260324160013-b37fddfcd246/go.mod h1:5lEMSKfD77yE/C76GJEzaEcCIIEDBvPmZW2avAzhuZ8=
 github.com/opd-ai/toxcore v1.4.0-qtox-preview.0.20260604201511-46dc6e1f7d37 h1:1Ap5sAiXE+LcuZhyZ/3XusBWbvYXS2r2mhJCwDIBAEo=
