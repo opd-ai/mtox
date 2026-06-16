@@ -75,10 +75,12 @@ func IsAnonOnlyMode() bool {
 func NewClient() (*Client, error) {
 	options := toxcore.NewOptions()
 
-	// Enable legacy client support by default. When disabled (DisallowSecurityDowngrade=true),
+	// Enable legacy client support by default. When DisallowSecurityDowngrade is true,
 	// connections to peers without full post-quantum security capabilities (X3DH, header
-	// encryption, PQXDH) will be rejected. Set MTOX_STRICT_SECURITY=1 to disable legacy support
-	// and require all peers to have full security capabilities.
+	// encryption, PQXDH) will be rejected with a fatal security error. When false (default),
+	// the transport layer will gracefully negotiate to use the intersection of both sides'
+	// security capabilities, allowing connections to legacy vanilla Tox clients and bootstrap
+	// servers. Set MTOX_STRICT_SECURITY=1 to enforce post-quantum-only connections.
 	if os.Getenv("MTOX_STRICT_SECURITY") == "1" {
 		options.DisallowSecurityDowngrade = true
 		log.Println("mtox: strict security mode enabled - legacy clients will be rejected")

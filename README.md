@@ -103,9 +103,9 @@ By default, mtox enables **backward compatibility with legacy Tox clients and bo
 - **Classical-only Tox nodes** (supporting only X3DH and header encryption)
 - **Older Tox bootstrap servers**
 
-The transport layer performs an automatic negotiation to use the intersection of security capabilities between both peers, ensuring maximum interoperability while maintaining security.
+The transport layer performs an automatic negotiation to use the intersection of security capabilities between both peers, ensuring maximum interoperability. This provides the best available security for each peer: full post-quantum protection with compatible peers, or classical encryption with legacy peers.
 
-**Note:** This is the recommended default setting for maximum compatibility. If you want to enforce strict post-quantum security and reject all legacy peers, set `MTOX_STRICT_SECURITY=1`:
+**Note:** This is the recommended default setting for maximum compatibility. If you want to enforce strict post-quantum security only, rejecting all legacy peers, set `MTOX_STRICT_SECURITY=1`:
 
 ```bash
 # Enable strict security (reject legacy clients)
