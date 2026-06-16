@@ -74,6 +74,7 @@ This allows you to communicate with contacts on either network while maintaining
 | `MTOX_DISABLE_TOR=1` | Disable Tor even if service is available |
 | `MTOX_DISABLE_I2P=1` | Disable I2P even if service is available |
 | `MTOX_ANON_ONLY=1` | Anon-only mode: Tor + I2P + I2P datagrams, no clearnet |
+| `MTOX_STRICT_SECURITY=1` | Enable strict security mode (reject legacy clients without full post-quantum capabilities) |
 
 ### Anon-Only Mode
 
@@ -92,7 +93,28 @@ MTOX_ANON_ONLY=1 ./mtox
 - ❌ Disables IPv6
 - ❌ Disables local discovery
 
+
 **Note:** For complete anonymity guarantees, consider running mtox inside a network namespace or VM that blocks all non-Tor/I2P traffic.
+
+### Legacy Client Support
+
+By default, mtox enables **backward compatibility with legacy Tox clients and bootstrap servers**. This means mtox can gracefully downgrade its security capabilities to communicate with:
+- **Legacy vanilla Tox clients** (without post-quantum cryptography)
+- **Classical-only Tox nodes** (supporting only X3DH and header encryption)
+- **Older Tox bootstrap servers**
+
+The transport layer performs an automatic negotiation to use the intersection of security capabilities between both peers, ensuring maximum interoperability. This provides the best available security for each peer: full post-quantum protection with compatible peers, or classical encryption with legacy peers.
+
+**Note:** This is the recommended default setting for maximum compatibility. If you want to enforce strict post-quantum security only, rejecting all legacy peers, set `MTOX_STRICT_SECURITY=1`:
+
+```bash
+# Enable strict security (reject legacy clients)
+MTOX_STRICT_SECURITY=1 ./mtox
+```
+
+When strict security is enabled:
+- ❌ Connections to legacy clients without full post-quantum support will fail
+- ✅ All accepted connections use X3DH + header encryption + PQXDH (post-quantum)
 
 ## Tor Services Integration
 

@@ -42,9 +42,10 @@ func printUsage() {
 	fmt.Fprintf(os.Stderr, "Options:\n")
 	flag.PrintDefaults()
 	fmt.Fprintf(os.Stderr, "\nEnvironment Variables:\n")
-	fmt.Fprintf(os.Stderr, "  MTOX_ANON_ONLY=1    Same as --anon-only\n")
-	fmt.Fprintf(os.Stderr, "  MTOX_DISABLE_TOR=1  Same as --no-tor\n")
-	fmt.Fprintf(os.Stderr, "  MTOX_DISABLE_I2P=1  Same as --no-i2p\n")
+	fmt.Fprintf(os.Stderr, "  MTOX_ANON_ONLY=1      Same as --anon-only\n")
+	fmt.Fprintf(os.Stderr, "  MTOX_DISABLE_TOR=1    Same as --no-tor\n")
+	fmt.Fprintf(os.Stderr, "  MTOX_DISABLE_I2P=1    Same as --no-i2p\n")
+	fmt.Fprintf(os.Stderr, "  MTOX_STRICT_SECURITY=1 Reject legacy clients without full post-quantum security\n")
 }
 
 // applyFlags sets environment variables based on parsed flags.
