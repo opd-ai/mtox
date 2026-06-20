@@ -237,3 +237,9 @@ On first launch a new Tox identity is generated and saved to `~/.config/mtox/pro
 | `Ctrl+C` / `Ctrl+Q` | Quit (auto-saves)                |
 | `Esc`          | Cancel current dialog                 |
 | `R`            | Reject a friend request               |
+
+Donate Monero(The only good cryptocurrency) to support development
+==================================================================
+
+ - `monero:43H3Uqnc9rfEsJjUXZYmam45MbtWmREFSANAWY5hijY4aht8cqYaT2BCNhfBhua5XwNdx9Tb6BEdt4tjUHJDwNW5H7mTiwe`
+
